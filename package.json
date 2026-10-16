@@ -1,0 +1,68 @@
+{
+  "name": "n8n-nodes-preflight",
+  "version": "0.1.0",
+  "description": "n8n nodes for Preflight (preflight.social): check posts against every network's publishing rules, then schedule or publish them to YouTube, TikTok, Instagram, Facebook, Threads, LinkedIn, Pinterest, Bluesky, Mastodon, Telegram, Discord and Tumblr.",
+  "license": "MIT",
+  "homepage": "https://github.com/Preflight-Social/n8n-nodes-preflight#readme",
+  "keywords": [
+    "n8n-community-node-package",
+    "n8n",
+    "preflight",
+    "social media",
+    "scheduler",
+    "instagram",
+    "tiktok",
+    "youtube",
+    "linkedin",
+    "bluesky",
+    "mastodon",
+    "threads",
+    "pinterest"
+  ],
+  "author": {
+    "name": "Preflight",
+    "email": "info@preflight.social",
+    "url": "https://preflight.social"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Preflight-Social/n8n-nodes-preflight.git"
+  },
+  "scripts": {
+    "build": "n8n-node build",
+    "build:watch": "tsc --watch",
+    "dev": "n8n-node dev",
+    "lint": "n8n-node lint",
+    "lint:fix": "n8n-node lint --fix",
+    "release": "n8n-node release",
+    "prepublishOnly": "n8n-node prerelease",
+    "test": "n8n-node build && node --test test/*.test.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "strict": true,
+    "credentials": [
+      "dist/credentials/PreflightApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/Preflight/Preflight.node.js",
+      "dist/nodes/PreflightTrigger/PreflightTrigger.node.js"
+    ]
+  },
+  "devDependencies": {
+    "@n8n/node-cli": "^0.52.5",
+    "eslint": "9.32.0",
+    "prettier": "3.6.2",
+    "release-it": "^21.1.0",
+    "typescript": "5.9.2"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  },
+  "bugs": {
+    "url": "https://github.com/Preflight-Social/n8n-nodes-preflight/issues"
+  }
+}

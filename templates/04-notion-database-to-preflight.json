@@ -1,0 +1,388 @@
+{
+  "name": "Notion content database to Preflight, checked before scheduling",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Notion database → Preflight\n\nPlan posts in a Notion database. Every 15 minutes, pages with **Status** = `Ready` are checked against each network's rules and scheduled in Preflight. The page then gets `Scheduled` and the Preflight post ID, or `Needs fix` and the reason.\n\n**Database properties**\n- `Name` (title) - internal name\n- `Text` (text) - the caption\n- `Channels` (text) - e.g. `bluesky, linkedin`\n- `Publish At` (date with time)\n- `Media URL` (URL, optional)\n- `Status` (status: Ready, Scheduled, Needs fix)\n- `Preflight ID` (text)\n- `Issues` (text)\n\nPick the database in all three Notion nodes and your Preflight credential in the Preflight nodes.",
+        "height": 500,
+        "width": 500
+      },
+      "id": "3c34d060-de42-56b1-a40b-7b1bfbb5892f",
+      "name": "About",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "937a2041-5346-577d-aced-da7a1814b7be",
+      "name": "Every 15 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "returnAll": true,
+        "filterType": "manual",
+        "filters": {
+          "conditions": [
+            {
+              "key": "Status|status",
+              "condition": "equals",
+              "statusValue": "Ready"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dd70f656-5740-58aa-b9d9-e2a3dd07940f",
+      "name": "Pages marked Ready",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "1b7accc5-618d-5f49-ba93-d51ae9992b15",
+              "leftValue": "={{ $json.property_media_url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "25528c94-97fd-5606-b047-284582063c0a",
+      "name": "Has a file?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "media",
+        "operation": "upload",
+        "source": "url",
+        "sourceUrl": "={{ $json.property_media_url }}",
+        "kind": "auto",
+        "waitUntilReady": true
+      },
+      "id": "87dfb8e5-6ce5-5025-9d24-e3dd8f27f9d4",
+      "name": "Upload file to Preflight",
+      "type": "n8n-nodes-preflight.preflight",
+      "typeVersion": 1,
+      "position": [
+        660,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "fd7ea812-0ebd-5736-9d97-357c12dd39fd",
+      "name": "Together again",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "post",
+        "operation": "validate",
+        "channels": "={{ $('Pages marked Ready').item.json.property_channels }}",
+        "content": "={{ $('Pages marked Ready').item.json.property_text }}",
+        "additionalFields": {
+          "mediaIds": "={{ $json.kind ? $json.id : '' }}"
+        }
+      },
+      "id": "4d68cacc-d6b6-5dea-8377-df9fdf7e13f9",
+      "name": "Check against network rules",
+      "type": "n8n-nodes-preflight.preflight",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "58aa6f09-49ae-55c8-9b9a-41b196c3cb78",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "88045dcc-3b0f-532c-96fc-9cd1afe5e689",
+      "name": "Passes every network?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "post",
+        "operation": "create",
+        "channels": "={{ $('Pages marked Ready').item.json.property_channels }}",
+        "content": "={{ $('Pages marked Ready').item.json.property_text }}",
+        "additionalFields": {
+          "mediaIds": "={{ $json.kind ? $json.id : '' }}"
+        },
+        "when": "scheduled",
+        "scheduledAt": "={{ $('Pages marked Ready').item.json.property_publish_at.start }}",
+        "idempotencyKey": "={{ 'notion-' + $('Pages marked Ready').item.json.id + '-' + $('Pages marked Ready').item.json.property_text.hash('sha256') }}"
+      },
+      "id": "599001db-d2d0-501b-aa32-134fc785bf32",
+      "name": "Schedule in Preflight",
+      "type": "n8n-nodes-preflight.preflight",
+      "typeVersion": 1,
+      "position": [
+        1540,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "update",
+        "pageId": {
+          "__rl": true,
+          "value": "={{ $('Pages marked Ready').item.json.id }}",
+          "mode": "id"
+        },
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Status|status",
+              "statusValue": "Scheduled"
+            },
+            {
+              "key": "Preflight ID|rich_text",
+              "textContent": "={{ $json.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5d3a3d3a-40a7-5c12-8a13-9c792b9794bf",
+      "name": "Mark Scheduled",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        1760,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "update",
+        "pageId": {
+          "__rl": true,
+          "value": "={{ $('Pages marked Ready').item.json.id }}",
+          "mode": "id"
+        },
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Status|status",
+              "statusValue": "Needs fix"
+            },
+            {
+              "key": "Issues|rich_text",
+              "textContent": "={{ $json.issues.map(i => (i.platform ? i.platform + ': ' : '') + i.message).join('\\n') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8430fdaa-7f49-54cf-b038-add87142f3cd",
+      "name": "Mark Needs fix",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        1540,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Every 15 minutes": {
+      "main": [
+        [
+          {
+            "node": "Pages marked Ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pages marked Ready": {
+      "main": [
+        [
+          {
+            "node": "Has a file?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has a file?": {
+      "main": [
+        [
+          {
+            "node": "Upload file to Preflight",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Together again",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Upload file to Preflight": {
+      "main": [
+        [
+          {
+            "node": "Together again",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Together again": {
+      "main": [
+        [
+          {
+            "node": "Check against network rules",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check against network rules": {
+      "main": [
+        [
+          {
+            "node": "Passes every network?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Passes every network?": {
+      "main": [
+        [
+          {
+            "node": "Schedule in Preflight",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Needs fix",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule in Preflight": {
+      "main": [
+        [
+          {
+            "node": "Mark Scheduled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

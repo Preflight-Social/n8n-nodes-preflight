@@ -1,0 +1,485 @@
+{
+  "name": "Google Sheets content calendar to Preflight, checked before scheduling",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Google Sheets content calendar → Preflight\n\nWrite posts in a sheet, set **Status** to `Ready`, and every 15 minutes they are checked against each network's rules and scheduled in Preflight. The row gets the Preflight post ID and `Scheduled`, or `Needs fix` with the exact reason (e.g. \"24 characters over on Bluesky\").\n\n**Sheet columns**\n`Text | Channels | Publish At | Media URL | Link | Status | Preflight Post ID | Issues`\n\n- **Channels**: network names, comma-separated, e.g. `bluesky, mastodon, linkedin` (or `platform:channelId` when you have two of one network).\n- **Publish At**: `2026-11-02 09:30` in the workflow's time zone. Empty = next free queue slot.\n- **Media URL**: optional public link to an image or video.\n\nPick the sheet in all three Google Sheets nodes and your Preflight credential in the Preflight nodes.",
+        "height": 480,
+        "width": 500
+      },
+      "id": "0852f8e6-61e8-5745-a1f2-d7fc4dfdbdcb",
+      "name": "About",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "557f7527-9d2f-5db9-96ec-991ed8d759fa",
+      "name": "Every 15 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Status",
+              "lookupValue": "Ready"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b1dcb403-78bb-5eaa-95d7-dde27b3b8eca",
+      "name": "Rows marked Ready",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b3886757-855b-568a-8030-e24c59f557eb",
+              "leftValue": "={{ $json['Media URL'] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "c4306ef2-76de-5e17-963c-908ac511e3c4",
+      "name": "Has a file?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "media",
+        "operation": "upload",
+        "source": "url",
+        "sourceUrl": "={{ $json['Media URL'] }}",
+        "kind": "auto",
+        "waitUntilReady": true
+      },
+      "id": "2b4d07e0-a560-54a1-b163-894ca1a281c7",
+      "name": "Upload file to Preflight",
+      "type": "n8n-nodes-preflight.preflight",
+      "typeVersion": 1,
+      "position": [
+        660,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "ae86bed1-f164-542c-8da4-3869c4057ec8",
+      "name": "Together again",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "post",
+        "operation": "validate",
+        "channels": "={{ $('Rows marked Ready').item.json.Channels }}",
+        "content": "={{ $('Rows marked Ready').item.json.Text }}",
+        "additionalFields": {
+          "mediaIds": "={{ $json.kind ? $json.id : '' }}",
+          "linkUrl": "={{ $('Rows marked Ready').item.json.Link }}"
+        }
+      },
+      "id": "709d8efd-9646-5ed2-b1eb-a1b931d73578",
+      "name": "Check against network rules",
+      "type": "n8n-nodes-preflight.preflight",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "58aa6f09-49ae-55c8-9b9a-41b196c3cb78",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "43b11ae6-9347-50f1-ad4d-949f33d66e25",
+      "name": "Passes every network?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "900c04f4-aaae-5f3d-9018-c3066cfbfbeb",
+              "leftValue": "={{ $('Rows marked Ready').item.json['Publish At'] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "b27cd5fe-fedb-5b57-89c3-144055482197",
+      "name": "Has a time?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1540,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "post",
+        "operation": "create",
+        "channels": "={{ $('Rows marked Ready').item.json.Channels }}",
+        "content": "={{ $('Rows marked Ready').item.json.Text }}",
+        "additionalFields": {
+          "mediaIds": "={{ $json.kind ? $json.id : '' }}",
+          "linkUrl": "={{ $('Rows marked Ready').item.json.Link }}"
+        },
+        "when": "scheduled",
+        "scheduledAt": "={{ $('Rows marked Ready').item.json['Publish At'] }}",
+        "idempotencyKey": "={{ 'sheet-' + $('Rows marked Ready').item.json.row_number + '-' + $('Rows marked Ready').item.json.Text.hash('sha256') }}"
+      },
+      "id": "b4c9efb4-1e12-5d40-bd17-83bf2c035ba7",
+      "name": "Schedule in Preflight",
+      "type": "n8n-nodes-preflight.preflight",
+      "typeVersion": 1,
+      "position": [
+        1760,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "post",
+        "operation": "create",
+        "channels": "={{ $('Rows marked Ready').item.json.Channels }}",
+        "content": "={{ $('Rows marked Ready').item.json.Text }}",
+        "additionalFields": {
+          "mediaIds": "={{ $json.kind ? $json.id : '' }}",
+          "linkUrl": "={{ $('Rows marked Ready').item.json.Link }}"
+        },
+        "when": "queue",
+        "idempotencyKey": "={{ 'sheet-' + $('Rows marked Ready').item.json.row_number + '-' + $('Rows marked Ready').item.json.Text.hash('sha256') }}"
+      },
+      "id": "6b7ae939-ea13-5c2a-880a-353f9404548b",
+      "name": "Queue in Preflight",
+      "type": "n8n-nodes-preflight.preflight",
+      "typeVersion": 1,
+      "position": [
+        1760,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $('Rows marked Ready').item.json.row_number }}",
+            "Status": "Scheduled",
+            "Preflight Post ID": "={{ $json.id }}",
+            "Issues": ""
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "423cde03-2365-5a78-b726-1dcf601fc48e",
+      "name": "Mark Scheduled",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1980,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $('Rows marked Ready').item.json.row_number }}",
+            "Status": "Needs fix",
+            "Issues": "={{ $json.issues.map(i => (i.platform ? i.platform + ': ' : '') + i.message).join('\\n') }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "c2608dcc-11d0-5378-9c24-55b6e4ea5f04",
+      "name": "Mark Needs fix",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1540,
+        140
+      ]
+    }
+  ],
+  "connections": {
+    "Every 15 minutes": {
+      "main": [
+        [
+          {
+            "node": "Rows marked Ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rows marked Ready": {
+      "main": [
+        [
+          {
+            "node": "Has a file?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has a file?": {
+      "main": [
+        [
+          {
+            "node": "Upload file to Preflight",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Together again",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Upload file to Preflight": {
+      "main": [
+        [
+          {
+            "node": "Together again",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Together again": {
+      "main": [
+        [
+          {
+            "node": "Check against network rules",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check against network rules": {
+      "main": [
+        [
+          {
+            "node": "Passes every network?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Passes every network?": {
+      "main": [
+        [
+          {
+            "node": "Has a time?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Needs fix",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has a time?": {
+      "main": [
+        [
+          {
+            "node": "Schedule in Preflight",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Queue in Preflight",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule in Preflight": {
+      "main": [
+        [
+          {
+            "node": "Mark Scheduled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Queue in Preflight": {
+      "main": [
+        [
+          {
+            "node": "Mark Scheduled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

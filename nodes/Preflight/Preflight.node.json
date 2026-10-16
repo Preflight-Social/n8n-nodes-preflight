@@ -1,0 +1,20 @@
+{
+	"node": "n8n-nodes-preflight.preflight",
+	"nodeVersion": "1.0",
+	"codexVersion": "1.0",
+	"categories": [
+		"Marketing & Content"
+	],
+	"resources": {
+		"credentialDocumentation": [
+			{
+				"url": "https://github.com/Preflight-Social/n8n-nodes-preflight#credentials"
+			}
+		],
+		"primaryDocumentation": [
+			{
+				"url": "https://github.com/Preflight-Social/n8n-nodes-preflight#readme"
+			}
+		]
+	}
+}

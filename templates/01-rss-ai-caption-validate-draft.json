@@ -1,0 +1,323 @@
+{
+  "name": "Blog RSS to AI-written social drafts, checked by Preflight",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Blog RSS → AI caption → Preflight drafts\n\nEvery hour, new articles from your feed get a short social caption from an AI model. Preflight checks the caption against every chosen network's publishing rules (length counted the network's way, links, hashtags, media). Posts that pass land in Preflight as **drafts** for a person to approve. Nothing is published.\n\n**Set up**\n1. Put your feed URL in **Read feed**.\n2. Add an OpenAI credential to **OpenAI model** (or swap in any chat model).\n3. In both Preflight nodes pick your Preflight credential and the same channels.\n\nThe idempotency key is a hash of the article link, so an article never becomes two drafts.",
+        "height": 420,
+        "width": 460
+      },
+      "id": "cdae7702-93ca-54b9-953b-66c9cef63aea",
+      "name": "About",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -520,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "b3da900a-b13e-5e91-a215-b3711190c513",
+      "name": "Every hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://preflight.social/blog/feed.xml",
+        "options": {}
+      },
+      "id": "f2592674-6e60-5b45-a802-4ee36766de81",
+      "name": "Read feed",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "removeItemsSeenInPreviousExecutions",
+        "dedupeValue": "={{ $json.link }}",
+        "options": {}
+      },
+      "id": "7f00c164-7ba2-57be-a469-d75ddaab5cd5",
+      "name": "Only new articles",
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "maxItems": 3
+      },
+      "id": "dc56300b-698d-53e4-91b8-681fe78a9dc2",
+      "name": "At most 3 per run",
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Write one social media post that makes people want to read this article.\n\nTitle: {{ $json.title }}\nSummary: {{ $json.contentSnippet }}\n\nRules: under 250 characters, plain text, at most two hashtags, no emoji at the start, and do not include the link (it is added separately). Reply with the post text only."
+      },
+      "id": "f9b28f40-6c6c-5c6b-a3fb-2a61d80b71e1",
+      "name": "Write caption",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "options": {}
+      },
+      "id": "0267beb2-d65a-5709-b966-954f828e1e98",
+      "name": "OpenAI model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        880,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "post",
+        "operation": "validate",
+        "channels": [],
+        "content": "={{ $json.text.trim() }}",
+        "additionalFields": {
+          "linkUrl": "={{ $('Only new articles').item.json.link }}"
+        }
+      },
+      "id": "c5e800f7-f6d9-547b-93d0-dbddbd395408",
+      "name": "Check against network rules",
+      "type": "n8n-nodes-preflight.preflight",
+      "typeVersion": 1,
+      "position": [
+        1240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "58aa6f09-49ae-55c8-9b9a-41b196c3cb78",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a0cfcc0e-1f2b-5a92-b0d9-51ae01c33dde",
+      "name": "Passes every network?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1460,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "post",
+        "operation": "create",
+        "channels": [],
+        "content": "={{ $('Write caption').item.json.text.trim() }}",
+        "when": "draft",
+        "idempotencyKey": "={{ 'rss-' + $('Only new articles').item.json.link.hash('sha256') }}",
+        "additionalFields": {
+          "linkUrl": "={{ $('Only new articles').item.json.link }}"
+        }
+      },
+      "id": "945e925f-684b-5b57-adab-bacddd5e0c8f",
+      "name": "Save as draft in Preflight",
+      "type": "n8n-nodes-preflight.preflight",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2cef8161-fe86-5e93-9dfa-e3307f13e43e",
+              "name": "article",
+              "value": "={{ $('Only new articles').item.json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "9c546726-4bea-56b6-b540-d957627311a9",
+              "name": "issues",
+              "value": "={{ $json.issues.map(i => (i.platform ? i.platform + ': ' : '') + i.message).join('\\n') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "64b5df58-51de-5e1d-aff1-a8dc992fc2f1",
+      "name": "Needs a human",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1680,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Every hour": {
+      "main": [
+        [
+          {
+            "node": "Read feed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read feed": {
+      "main": [
+        [
+          {
+            "node": "Only new articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only new articles": {
+      "main": [
+        [
+          {
+            "node": "At most 3 per run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "At most 3 per run": {
+      "main": [
+        [
+          {
+            "node": "Write caption",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write caption": {
+      "main": [
+        [
+          {
+            "node": "Check against network rules",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check against network rules": {
+      "main": [
+        [
+          {
+            "node": "Passes every network?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Write caption",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Passes every network?": {
+      "main": [
+        [
+          {
+            "node": "Save as draft in Preflight",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Needs a human",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

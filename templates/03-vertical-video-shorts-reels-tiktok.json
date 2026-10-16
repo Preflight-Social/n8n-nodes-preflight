@@ -1,0 +1,279 @@
+{
+  "name": "One vertical video to YouTube Shorts, Instagram Reels and TikTok with Preflight",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## One vertical video → Shorts, Reels and TikTok\n\nDrop a vertical video into the form. Preflight checks it against each network's video rules (length, size, frame rate, aspect ratio, caption length) **before** uploading anywhere, then queues it for the next free slot on each channel.\n\n- YouTube: published as a Short with the title from the form.\n- Instagram: as a Reel.\n- TikTok: sent to the creator's **inbox** to finish in the app (privacy Only me). Change the TikTok options when you are ready to post directly.\n\nStarting from a long YouTube video? Cut the vertical clip first; downloading videos from YouTube is against its terms. A Google Drive or Dropbox trigger works in place of the form.\n\nThe form is protected with **Basic Auth**: create a login for it in **Upload form**, otherwise anyone with the form link could queue videos to your channels.\n\nPick your Preflight credential and the three channels in the Preflight nodes.",
+        "height": 560,
+        "width": 500
+      },
+      "id": "c6029f20-5aef-51e6-ba4c-5c4ba6812ee8",
+      "name": "About",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        -360
+      ]
+    },
+    {
+      "parameters": {
+        "formTitle": "New short video",
+        "formDescription": "Checked by Preflight, then queued to YouTube Shorts, Instagram Reels and TikTok.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Video",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": ".mp4, .mov",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Caption",
+              "fieldType": "textarea",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "YouTube title",
+              "requiredField": true
+            }
+          ]
+        },
+        "authentication": "basicAuth",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "36f7614f-36fc-55ed-988b-da55de85f6bd",
+      "name": "Upload form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "053e174e-0def-591c-9dc3-175981932e34",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "",
+          "name": "Upload form login"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "media",
+        "operation": "upload",
+        "source": "binary",
+        "binaryPropertyName": "Video",
+        "kind": "video",
+        "waitUntilReady": true,
+        "options": {
+          "waitTimeout": 900
+        }
+      },
+      "id": "702b7cc8-857e-5c56-b3df-727f13a61460",
+      "name": "Upload video to Preflight",
+      "type": "n8n-nodes-preflight.preflight",
+      "typeVersion": 1,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "post",
+        "operation": "validate",
+        "channels": [],
+        "content": "={{ $('Upload form').item.json.Caption }}",
+        "additionalFields": {
+          "mediaIds": "={{ $json.id }}"
+        },
+        "networkOptions": {
+          "youtubeTitle": "={{ $('Upload form').item.json['YouTube title'] }}",
+          "youtubeShort": true,
+          "youtubePrivacy": "public",
+          "instagramPlacement": "reel",
+          "tiktokPrivacy": "SELF_ONLY",
+          "tiktokAsDraft": true
+        }
+      },
+      "id": "a795335f-9085-5ca5-aff0-764c79730b59",
+      "name": "Check video rules",
+      "type": "n8n-nodes-preflight.preflight",
+      "typeVersion": 1,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "58aa6f09-49ae-55c8-9b9a-41b196c3cb78",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0915a4fe-6bc5-50cc-ac6f-18456d138cf8",
+      "name": "Passes every network?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "post",
+        "operation": "create",
+        "channels": [],
+        "content": "={{ $('Upload form').item.json.Caption }}",
+        "additionalFields": {
+          "mediaIds": "={{ $('Upload video to Preflight').item.json.id }}"
+        },
+        "networkOptions": {
+          "youtubeTitle": "={{ $('Upload form').item.json['YouTube title'] }}",
+          "youtubeShort": true,
+          "youtubePrivacy": "public",
+          "instagramPlacement": "reel",
+          "tiktokPrivacy": "SELF_ONLY",
+          "tiktokAsDraft": true
+        },
+        "when": "queue",
+        "idempotencyKey": "={{ 'short-' + $('Upload video to Preflight').item.json.id }}"
+      },
+      "id": "581aba1d-baf1-5960-a98d-b09e19a925f8",
+      "name": "Queue on every channel",
+      "type": "n8n-nodes-preflight.preflight",
+      "typeVersion": 1,
+      "position": [
+        880,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "Queued",
+        "completionMessage": "=It goes out on each channel at its next free slot. Preflight post {{ $json.id }}."
+      },
+      "id": "30e65b9a-deca-5585-a737-6d874ee3d7a7",
+      "name": "Queued",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        -100
+      ],
+      "webhookId": "d844a466-ab29-5c7b-b6cd-f482cde5a396"
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "Not queued: fix this first",
+        "completionMessage": "={{ $json.issues.map(i => (i.platform ? i.platform + ': ' : '') + i.message).join('\\n') }}"
+      },
+      "id": "5722630e-77a5-5fa9-99a3-4d6ee353e63c",
+      "name": "Refused",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [
+        880,
+        100
+      ],
+      "webhookId": "9a58848c-dbf8-53af-898c-6f560a02bf68"
+    }
+  ],
+  "connections": {
+    "Upload form": {
+      "main": [
+        [
+          {
+            "node": "Upload video to Preflight",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload video to Preflight": {
+      "main": [
+        [
+          {
+            "node": "Check video rules",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check video rules": {
+      "main": [
+        [
+          {
+            "node": "Passes every network?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Passes every network?": {
+      "main": [
+        [
+          {
+            "node": "Queue on every channel",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Refused",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Queue on every channel": {
+      "main": [
+        [
+          {
+            "node": "Queued",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
