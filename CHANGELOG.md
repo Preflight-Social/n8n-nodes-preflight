@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+- Releases are staged on npm from GitHub Actions with provenance (Trusted Publishing, OIDC) and go live only after a maintainer approves them with 2FA. No change to the nodes.
+
 ## 0.1.0
 
 First release.

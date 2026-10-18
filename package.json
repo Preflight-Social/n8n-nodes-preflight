@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-preflight",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "n8n nodes for Preflight (preflight.social): check posts against every network's publishing rules, then schedule or publish them to YouTube, TikTok, Instagram, Facebook, Threads, LinkedIn, Pinterest, Bluesky, Mastodon, Telegram, Discord and Tumblr.",
   "license": "MIT",
   "homepage": "https://github.com/Preflight-Social/n8n-nodes-preflight#readme",

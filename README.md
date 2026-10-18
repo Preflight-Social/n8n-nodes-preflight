@@ -20,7 +20,7 @@ Use it to validate, schedule, queue or publish posts to **YouTube, TikTok, Insta
 
 Follow the [installation guide](https://docs.n8n.io/integrations/community-nodes/installation/) in the n8n community nodes documentation and install `n8n-nodes-preflight`.
 
-The package has no runtime dependencies.
+The package has no runtime dependencies. Every release is built and published by [GitHub Actions](.github/workflows/publish.yml) with [npm provenance](https://docs.npmjs.com/generating-provenance-statements).
 
 ## Credentials
 
@@ -171,4 +171,5 @@ Manual Trigger
 
 See [CHANGELOG.md](CHANGELOG.md).
 
+- **0.1.1**: release pipeline only (staged, provenance-signed publishing from GitHub Actions).
 - **0.1.0**: first release. Preflight node (Post, Media, Channel) and Preflight Trigger (`post.published`, `post.failed`).
