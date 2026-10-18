@@ -84,16 +84,34 @@ jobs:
       - name: Install dependencies
         run: 'npm ci'
 
-      - name: Release
-        # Publishes to npm with a provenance attestation (requires id-token: write above).
-        # Lint and build run automatically as part of the release process.
+      - name: Tag matches package.json
+        run: |
+          version=$(node -p "require('./package.json').version")
+          [ "$version" = "$GITHUB_REF_NAME" ] || { echo "Tag $GITHUB_REF_NAME does not match package.json version $version"; exit 1; }
+
+      - name: Lint, build and test
+        run: |
+          npm run lint
+          npm test
+
+      - name: npm with staged publishing
+        # `npm stage` needs npm 11.15 or later; the Node LTS image may ship an older one.
+        run: npm install -g npm@11.21.1
+
+      - name: Stage the release on npm
+        # Staged, not published: the version goes live only after a maintainer
+        # approves it on npmjs.com (Staged Packages) with 2FA. The token is a
+        # granular "Read and write (stage only)" token without 2FA bypass, so a
+        # leaked token cannot publish anything by itself. Provenance is attached
+        # from this workflow run (id-token: write above).
         #
-        # Option A (OIDC): leave NPM_TOKEN unset — the token step is skipped and
-        #   npm uses the OIDC exchange instead.
-        # Option B (token): set NPM_TOKEN in repo secrets — it is written to
-        #   .npmrc here before publishing.
+        # Option A (OIDC): leave NPM_TOKEN unset once a Trusted Publisher is
+        #   configured for this workflow on npmjs.com.
+        # Option B (token): NPM_TOKEN in repo secrets, written to .npmrc here.
         run: |
           [ -n "$NPM_TOKEN" ] && npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
-          npm run release
+          npm stage publish . --provenance --access public
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # Lets the package's prepublishOnly guard (n8n-node prerelease) through.
+          RELEASE_MODE: 'true'
