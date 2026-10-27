@@ -10,6 +10,8 @@ Five workflows for the Preflight node, laid out the way the n8n template gallery
 | `04-notion-database-to-preflight.json` | Every 15 minutes | Notion | Pages `Ready` → scheduled; page updated with the post ID or the reason |
 | `05-failed-post-slack-alert.json` | Preflight Trigger (`post.failed`) | Slack | An alert per failed channel with the reason, whether a retry can work and a link to the post |
 
+Screenshots of each canvas are in [`images/`](images): [RSS → drafts](images/01-rss-ai-drafts.png), [Google Sheets](images/02-google-sheets-calendar.png), [vertical video](images/03-video-shorts-reels-tiktok.png), [Slack alert](images/05-failed-post-slack-alert.png).
+
 What they have in common:
 
 - **Validate before create.** Every workflow asks Preflight whether each network would accept the post, and only creates it when the answer is yes. A refusal comes back as a plain sentence such as "Text is 385 characters; Bluesky allows 300."
