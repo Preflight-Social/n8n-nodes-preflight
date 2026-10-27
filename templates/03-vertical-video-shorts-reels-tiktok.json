@@ -1,19 +1,52 @@
 {
-  "name": "One vertical video to YouTube Shorts, Instagram Reels and TikTok with Preflight",
+  "name": "Queue one vertical video to YouTube Shorts, Instagram Reels and TikTok after a rules check",
   "nodes": [
     {
       "parameters": {
-        "content": "## One vertical video → Shorts, Reels and TikTok\n\nDrop a vertical video into the form. Preflight checks it against each network's video rules (length, size, frame rate, aspect ratio, caption length) **before** uploading anywhere, then queues it for the next free slot on each channel.\n\n- YouTube: published as a Short with the title from the form.\n- Instagram: as a Reel.\n- TikTok: sent to the creator's **inbox** to finish in the app (privacy Only me). Change the TikTok options when you are ready to post directly.\n\nStarting from a long YouTube video? Cut the vertical clip first; downloading videos from YouTube is against its terms. A Google Drive or Dropbox trigger works in place of the form.\n\nThe form is protected with **Basic Auth**: create a login for it in **Upload form**, otherwise anyone with the form link could queue videos to your channels.\n\nPick your Preflight credential and the three channels in the Preflight nodes.",
-        "height": 560,
-        "width": 500
+        "content": "## One vertical video to Shorts, Reels and TikTok\n\nFor creators and social teams who post the same short video on three networks and want it checked against all three before anything is uploaded to them.\n\n### How it works\n1. You upload a video, a caption and a YouTube title through an n8n form.\n2. The video goes to Preflight, which measures it: length, size, frame rate, aspect ratio.\n3. Preflight checks the video and caption against YouTube Shorts, Instagram Reels and TikTok rules.\n4. If all three accept it, it is queued for each channel's next free slot. The form shows the result, or the exact reasons it was refused.\n\n### Setup\n1. Needs the verified community node **Preflight** ([n8n-nodes-preflight](https://www.npmjs.com/package/n8n-nodes-preflight) 0.1.1 or later): search for Preflight in the nodes panel and choose Install. Tested on n8n 2.43.\n2. In [Preflight](https://preflight.social) (the free plan works), connect your social accounts, then create an API key under Settings → API keys with the scopes `posts:read`, `posts:write`, `posts:publish`, `media:read` and `media:write`. Add it as a **Preflight API** credential in the three Preflight nodes.\n3. Add a Basic Auth credential to **Upload form**, so only people with the login can queue videos.\n4. In **Configuration**, list the channels, e.g. `youtube, instagram, tiktok`.\n\n### Customization\n- TikTok goes to the creator's inbox as **Only me** to finish in the app. Change the TikTok options in both Preflight post nodes when you are ready to post directly.\n- Swap the form for a Google Drive or Dropbox trigger. Cut clips yourself: downloading from YouTube is against its terms.",
+        "height": 960,
+        "width": 600,
+        "color": 1
       },
-      "id": "c6029f20-5aef-51e6-ba4c-5c4ba6812ee8",
-      "name": "About",
+      "id": "8f0dc624-a7dc-5074-b5c1-7c2c302f71a4",
+      "name": "Overview",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -560,
-        -360
+        -800,
+        -440
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 1. Form and upload\nThe video is uploaded in parts and measured before any network sees it.",
+        "height": 360,
+        "width": 740,
+        "color": 7
+      },
+      "id": "41fe3d07-45dd-5908-bac7-17544257acf2",
+      "name": "Section: upload",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 2. Check all three networks, then queue\nThe idempotency key is the media ID, so submitting twice does not queue twice.",
+        "height": 620,
+        "width": 1180,
+        "color": 7
+      },
+      "id": "5263ef61-7903-5b18-9d41-2c1ffaf8f359",
+      "name": "Section: check and queue",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        700,
+        -320
       ]
     },
     {
@@ -52,13 +85,31 @@
         0,
         0
       ],
-      "webhookId": "053e174e-0def-591c-9dc3-175981932e34",
-      "credentials": {
-        "httpBasicAuth": {
-          "id": "",
-          "name": "Upload form login"
-        }
-      }
+      "webhookId": "053e174e-0def-591c-9dc3-175981932e34"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "71c28f90-7122-5e75-a816-e35132c9e76f",
+              "name": "channels",
+              "value": "youtube, instagram, tiktok",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {},
+        "includeOtherFields": true
+      },
+      "id": "28ef3e86-a72b-57a7-9dbd-40bd85b86e5d",
+      "name": "Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ]
     },
     {
       "parameters": {
@@ -77,7 +128,7 @@
       "type": "n8n-nodes-preflight.preflight",
       "typeVersion": 1,
       "position": [
-        220,
+        440,
         0
       ]
     },
@@ -85,10 +136,10 @@
       "parameters": {
         "resource": "post",
         "operation": "validate",
-        "channels": [],
+        "channels": "={{ $('Configuration').first().json.channels }}",
         "content": "={{ $('Upload form').item.json.Caption }}",
         "additionalFields": {
-          "mediaIds": "={{ $json.id }}"
+          "mediaIds": "={{ $('Upload video to Preflight').item.json.id }}"
         },
         "networkOptions": {
           "youtubeTitle": "={{ $('Upload form').item.json['YouTube title'] }}",
@@ -104,9 +155,12 @@
       "type": "n8n-nodes-preflight.preflight",
       "typeVersion": 1,
       "position": [
-        440,
+        760,
         0
-      ]
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
     },
     {
       "parameters": {
@@ -114,7 +168,7 @@
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "strict",
+            "typeValidation": "loose",
             "version": 2
           },
           "conditions": [
@@ -131,6 +185,7 @@
           ],
           "combinator": "and"
         },
+        "looseTypeValidation": true,
         "options": {}
       },
       "id": "0915a4fe-6bc5-50cc-ac6f-18456d138cf8",
@@ -138,7 +193,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        660,
+        980,
         0
       ]
     },
@@ -146,7 +201,7 @@
       "parameters": {
         "resource": "post",
         "operation": "create",
-        "channels": [],
+        "channels": "={{ $('Configuration').first().json.channels }}",
         "content": "={{ $('Upload form').item.json.Caption }}",
         "additionalFields": {
           "mediaIds": "={{ $('Upload video to Preflight').item.json.id }}"
@@ -167,45 +222,111 @@
       "type": "n8n-nodes-preflight.preflight",
       "typeVersion": 1,
       "position": [
-        880,
-        -100
+        1200,
+        -120
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "da456735-88ab-5610-896e-2a9c4d6b5ac4",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "6913b199-58ce-54fc-898d-83122f31d76c",
+      "name": "Queued?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1420,
+        -120
       ]
     },
     {
       "parameters": {
         "operation": "completion",
         "completionTitle": "Queued",
-        "completionMessage": "=It goes out on each channel at its next free slot. Preflight post {{ $json.id }}."
+        "completionMessage": "=It goes out on each channel at its next free slot. Preflight post {{ $json.id }}.",
+        "options": {}
       },
       "id": "30e65b9a-deca-5585-a737-6d874ee3d7a7",
       "name": "Queued",
       "type": "n8n-nodes-base.form",
       "typeVersion": 1,
       "position": [
-        1100,
-        -100
+        1660,
+        -220
       ],
       "webhookId": "d844a466-ab29-5c7b-b6cd-f482cde5a396"
     },
     {
       "parameters": {
         "operation": "completion",
+        "completionTitle": "Not queued",
+        "completionMessage": "={{ [$json.error, $json.description].filter(Boolean).join(': ') || 'Preflight refused the post' }}",
+        "options": {}
+      },
+      "id": "7f8f25b4-aac1-579e-a055-ae860452e19d",
+      "name": "Not queued",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [
+        1660,
+        -20
+      ],
+      "webhookId": "f9f7f480-9020-5bd5-badd-9080267c6485"
+    },
+    {
+      "parameters": {
+        "operation": "completion",
         "completionTitle": "Not queued: fix this first",
-        "completionMessage": "={{ $json.issues.map(i => (i.platform ? i.platform + ': ' : '') + i.message).join('\\n') }}"
+        "completionMessage": "={{ $json.issues.map(i => (i.platform ? i.platform + ': ' : '') + i.message).join('\\n') }}",
+        "options": {}
       },
       "id": "5722630e-77a5-5fa9-99a3-4d6ee353e63c",
       "name": "Refused",
       "type": "n8n-nodes-base.form",
       "typeVersion": 1,
       "position": [
-        880,
-        100
+        1200,
+        140
       ],
       "webhookId": "9a58848c-dbf8-53af-898c-6f560a02bf68"
     }
   ],
   "connections": {
     "Upload form": {
+      "main": [
+        [
+          {
+            "node": "Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configuration": {
       "main": [
         [
           {
@@ -260,7 +381,25 @@
       "main": [
         [
           {
+            "node": "Queued?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Queued?": {
+      "main": [
+        [
+          {
             "node": "Queued",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Not queued",
             "type": "main",
             "index": 0
           }

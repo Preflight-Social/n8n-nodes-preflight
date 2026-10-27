@@ -611,16 +611,22 @@ export class Preflight implements INodeType {
 			}
 
 			if (failure === undefined) continue;
+			// Already carries the item index and Preflight's own message.
+			const error =
+				failure instanceof NodeApiError || failure instanceof NodeOperationError
+					? failure
+					: new NodeApiError(this.getNode(), failure as JsonObject, { itemIndex: i });
 			if (this.continueOnFail()) {
+				// `error` on the item is what sends it down the error output when
+				// the node is set to "Continue (using error output)".
 				returnData.push({
-					json: { error: (failure as Error).message, description: (failure as NodeApiError).description ?? undefined },
+					json: { error: error.message, description: error.description ?? undefined },
+					error,
 					pairedItem: { item: i },
 				});
 				continue;
 			}
-			// Already carries the item index and Preflight's own message.
-			if (failure instanceof NodeApiError || failure instanceof NodeOperationError) throw failure;
-			throw new NodeApiError(this.getNode(), failure as JsonObject, { itemIndex: i });
+			throw error;
 		}
 
 		return [returnData];

@@ -1,0 +1,195 @@
+{
+  "name": "Get a Slack alert when a scheduled social media post fails to publish",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Slack alert when a social media post fails\n\nFor anyone who schedules posts in Preflight and wants to hear about a failure the moment it happens, not when a client asks why the post is missing.\n\n### How it works\n1. Preflight sends `post.failed` once it has stopped retrying a channel, so this runs once per real failure, not on every attempt.\n2. The workflow reads the post so the alert can quote its text.\n3. Slack gets the network, the reason in plain words, whether a retry can work, and a link to the post.\n\n### Setup\n1. Needs the verified community node **Preflight** ([n8n-nodes-preflight](https://www.npmjs.com/package/n8n-nodes-preflight) 0.1.1 or later): search for Preflight in the nodes panel and choose Install. Tested on n8n 2.43.\n2. In [Preflight](https://preflight.social) (the free plan works), connect your social accounts, then create an API key under Settings → API keys with the scopes `posts:read`, `webhooks:read` and `webhooks:write`. Add it as a **Preflight API** credential in both Preflight nodes.\n3. Add a Slack credential and set the channel in **Configuration**.\n4. Activate the workflow. That registers the webhook in Preflight; deactivating removes it. Preflight only delivers to a public https URL, so a local n8n needs a tunnel.\n\n### Customization\n- Add `post.published` to the trigger to log every live post too.\n- Swap Slack for Telegram, Discord or e-mail: everything they need is in **Write alert**.",
+        "height": 840,
+        "width": 600,
+        "color": 1
+      },
+      "id": "4d4a67d7-2c12-515a-bdf2-ac612e96a04d",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -800,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Failure → Slack\nEvery delivery is signed; the trigger refuses anything unsigned, changed or older than five minutes.",
+        "height": 380,
+        "width": 1180,
+        "color": 7
+      },
+      "id": "f14b603f-d2d4-546c-9518-2b37acedec72",
+      "name": "Section: alert",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "events": [
+          "post.failed"
+        ]
+      },
+      "id": "b7a3117a-18ab-5f2a-9fd2-70516a844cdc",
+      "name": "When a post fails",
+      "type": "n8n-nodes-preflight.preflightTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "8135b3eb-c8b8-5a9d-b2de-da056677928c"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d29486e2-b6cf-5c0c-9b05-e60aa322169c",
+              "name": "slackChannel",
+              "value": "#social-alerts",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ebad165c-ca56-510d-8bb6-de14e27c4895",
+      "name": "Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "post",
+        "operation": "get",
+        "postId": "={{ $('When a post fails').item.json.postId }}"
+      },
+      "id": "24ed70ec-8239-5a6b-a04e-1cebb95c64c0",
+      "name": "Get the post",
+      "type": "n8n-nodes-preflight.preflight",
+      "typeVersion": 1,
+      "position": [
+        440,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bb2d6682-7a35-5db5-ba17-cd54c4201b03",
+              "name": "message",
+              "value": "={{ ':warning: Preflight: post failed on ' + $('When a post fails').item.json.platform + '\\n' + 'Why: ' + $('When a post fails').item.json.error + '\\n' + ($('When a post fails').item.json.permanent ? 'Retrying will not help until this is fixed.' : 'A retry may work.') + '\\n' + 'Text: ' + ($json.content || '(could not read the post)').slice(0, 140) + '\\n' + 'Open: https://preflight.social/posts?post=' + $('When a post fails').item.json.postId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "23b29c8e-3aec-5b7c-8601-ab8401a3b09f",
+      "name": "Write alert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "={{ $('Configuration').first().json.slackChannel }}",
+          "mode": "name"
+        },
+        "text": "={{ $json.message }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "id": "77965d9c-3125-5f8a-816a-2c44a63c5beb",
+      "name": "Send to Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        880,
+        0
+      ],
+      "webhookId": "5a131282-0d37-52de-b11a-e914f952de9f",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "When a post fails": {
+      "main": [
+        [
+          {
+            "node": "Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configuration": {
+      "main": [
+        [
+          {
+            "node": "Get the post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get the post": {
+      "main": [
+        [
+          {
+            "node": "Write alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write alert": {
+      "main": [
+        [
+          {
+            "node": "Send to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

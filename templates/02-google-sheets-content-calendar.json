@@ -1,19 +1,84 @@
 {
-  "name": "Google Sheets content calendar to Preflight, checked before scheduling",
+  "name": "Schedule social media posts from a Google Sheets calendar, checked before they go out",
   "nodes": [
     {
       "parameters": {
-        "content": "## Google Sheets content calendar → Preflight\n\nWrite posts in a sheet, set **Status** to `Ready`, and every 15 minutes they are checked against each network's rules and scheduled in Preflight. The row gets the Preflight post ID and `Scheduled`, or `Needs fix` with the exact reason (e.g. \"24 characters over on Bluesky\").\n\n**Sheet columns**\n`Text | Channels | Publish At | Media URL | Link | Status | Preflight Post ID | Issues`\n\n- **Channels**: network names, comma-separated, e.g. `bluesky, mastodon, linkedin` (or `platform:channelId` when you have two of one network).\n- **Publish At**: `2026-11-02 09:30` in the workflow's time zone. Empty = next free queue slot.\n- **Media URL**: optional public link to an image or video.\n\nPick the sheet in all three Google Sheets nodes and your Preflight credential in the Preflight nodes.",
-        "height": 480,
-        "width": 500
+        "content": "## Schedule posts from a Google Sheets content calendar\n\nFor teams that plan social posts in a spreadsheet and want each one checked before it is scheduled, not when it fails at publishing time.\n\n### How it works\n1. Every 15 minutes the workflow reads rows whose **Status** is `Ready`.\n2. A **Media URL** is uploaded to Preflight first, which measures the image or video.\n3. Preflight checks text, link and media against the rules of every channel in the row.\n4. Rows that pass are scheduled for **Publish At**, or queued for the next free slot when it is empty. The row gets `Scheduled` and the Preflight post ID.\n5. Rows that fail get `Needs fix` and the reason, e.g. \"Text is 385 characters; Bluesky allows 300.\"\n\n### Setup\n1. Needs the verified community node **Preflight** ([n8n-nodes-preflight](https://www.npmjs.com/package/n8n-nodes-preflight) 0.1.1 or later): search for Preflight in the nodes panel and choose Install. Tested on n8n 2.43.\n2. In [Preflight](https://preflight.social) (the free plan works), connect your social accounts, then create an API key under Settings → API keys with the scopes `posts:read`, `posts:write`, `posts:publish`, `media:read` and `media:write`. Add it as a **Preflight API** credential in the four Preflight nodes.\n3. Make a sheet with a tab named `Posts` and this header row:\n`Text | Channels | Publish At | Media URL | Link | Status | Preflight Post ID | Issues`\n4. In **Configuration**, paste the sheet's URL. Add a Google Sheets credential to the four Sheets nodes.\n\n### Customization\n- **Channels**: network names such as `bluesky, linkedin`, or `platform:channelId` for two accounts on one network. Empty uses **defaultChannels** from Configuration.\n- **Publish At** (`2026-11-02 09:30`) is read in the workflow's time zone, set under Workflow settings.",
+        "height": 960,
+        "width": 600,
+        "color": 1
       },
-      "id": "0852f8e6-61e8-5745-a1f2-d7fc4dfdbdcb",
-      "name": "About",
+      "id": "bb9bae5e-7e6c-55cd-8ea2-df36504bb9e0",
+      "name": "Overview",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -560,
-        -300
+        -800,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 1. Rows marked Ready\nRead from the sheet in Configuration, tab `Posts`.",
+        "height": 360,
+        "width": 720,
+        "color": 7
+      },
+      "id": "44c47817-cb99-52a7-a14c-63f3f46edbbb",
+      "name": "Section: read rows",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 2. Media\nA Media URL is uploaded and measured first; rows without one skip this.",
+        "height": 480,
+        "width": 680,
+        "color": 7
+      },
+      "id": "06136935-3914-55ac-904f-34088e5be749",
+      "name": "Section: media",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        700,
+        -280
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 3. Check, then schedule or queue\nThe idempotency key is the row and a hash of its text, so a row never becomes two posts.",
+        "height": 620,
+        "width": 1440,
+        "color": 7
+      },
+      "id": "6fd6725c-be12-53d9-9dfe-3563fee6e36b",
+      "name": "Section: check and schedule",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1400,
+        -440
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 4. Write the result back\nA refusal or an API error lands in **Issues** so the row can be fixed and set to Ready again.",
+        "height": 340,
+        "width": 1440,
+        "color": 7
+      },
+      "id": "8b77bb42-14d9-58c9-a17c-e6d99bc59b00",
+      "name": "Section: write back",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1400,
+        220
       ]
     },
     {
@@ -38,15 +103,44 @@
     },
     {
       "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c025ca75-604b-50d0-a1e1-2a19e850698b",
+              "name": "sheetUrl",
+              "value": "https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit",
+              "type": "string"
+            },
+            {
+              "id": "68b0e87a-0dbb-5453-88ac-43910601ff9d",
+              "name": "defaultChannels",
+              "value": "bluesky, mastodon",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b9f3ba86-28f3-5b60-a036-c40f0b84f660",
+      "name": "Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
         "documentId": {
           "__rl": true,
-          "value": "",
-          "mode": "list"
+          "value": "={{ $('Configuration').first().json.sheetUrl }}",
+          "mode": "url"
         },
         "sheetName": {
           "__rl": true,
-          "value": "",
-          "mode": "list"
+          "value": "Posts",
+          "mode": "name"
         },
         "filtersUI": {
           "values": [
@@ -63,7 +157,7 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
       "position": [
-        220,
+        440,
         0
       ]
     },
@@ -98,7 +192,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        440,
+        760,
         0
       ]
     },
@@ -116,20 +210,60 @@
       "type": "n8n-nodes-preflight.preflight",
       "typeVersion": 1,
       "position": [
-        660,
-        -100
+        1000,
+        -140
       ]
     },
     {
       "parameters": {
-        "mode": "append"
+        "assignments": {
+          "assignments": [
+            {
+              "id": "940e822c-e6cc-533f-b8cc-e8ff0003a19d",
+              "name": "row_number",
+              "value": "={{ $('Rows marked Ready').item.json.row_number }}",
+              "type": "number"
+            },
+            {
+              "id": "6e7d6e35-7372-544a-b081-e6b0b8a2c56b",
+              "name": "text",
+              "value": "={{ $('Rows marked Ready').item.json.Text }}",
+              "type": "string"
+            },
+            {
+              "id": "e8c04bf7-9c3a-5cda-801b-ea3b82a79213",
+              "name": "channels",
+              "value": "={{ $('Rows marked Ready').item.json.Channels || $('Configuration').first().json.defaultChannels }}",
+              "type": "string"
+            },
+            {
+              "id": "d9412305-8f3e-5803-b2f6-ef7522c61e1f",
+              "name": "publishAt",
+              "value": "={{ $('Rows marked Ready').item.json['Publish At'] }}",
+              "type": "string"
+            },
+            {
+              "id": "5dc54dcf-8f17-5ebf-9895-e60da1c7cfe9",
+              "name": "mediaId",
+              "value": "={{ $json.kind ? $json.id : '' }}",
+              "type": "string"
+            },
+            {
+              "id": "ab24f89d-e864-5c76-8e6e-5b043e20b2d5",
+              "name": "link",
+              "value": "={{ $('Rows marked Ready').item.json.Link }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
       },
-      "id": "ae86bed1-f164-542c-8da4-3869c4057ec8",
-      "name": "Together again",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 3.2,
+      "id": "654ed631-64a2-59b1-bae8-16775e8140e9",
+      "name": "Post to check",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
       "position": [
-        880,
+        1220,
         0
       ]
     },
@@ -137,11 +271,11 @@
       "parameters": {
         "resource": "post",
         "operation": "validate",
-        "channels": "={{ $('Rows marked Ready').item.json.Channels }}",
-        "content": "={{ $('Rows marked Ready').item.json.Text }}",
+        "channels": "={{ $('Post to check').item.json.channels }}",
+        "content": "={{ $('Post to check').item.json.text }}",
         "additionalFields": {
-          "mediaIds": "={{ $json.kind ? $json.id : '' }}",
-          "linkUrl": "={{ $('Rows marked Ready').item.json.Link }}"
+          "mediaIds": "={{ $('Post to check').item.json.mediaId }}",
+          "linkUrl": "={{ $('Post to check').item.json.link }}"
         }
       },
       "id": "709d8efd-9646-5ed2-b1eb-a1b931d73578",
@@ -149,9 +283,12 @@
       "type": "n8n-nodes-preflight.preflight",
       "typeVersion": 1,
       "position": [
-        1100,
+        1460,
         0
-      ]
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
     },
     {
       "parameters": {
@@ -159,7 +296,7 @@
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "strict",
+            "typeValidation": "loose",
             "version": 2
           },
           "conditions": [
@@ -176,6 +313,7 @@
           ],
           "combinator": "and"
         },
+        "looseTypeValidation": true,
         "options": {}
       },
       "id": "43b11ae6-9347-50f1-ad4d-949f33d66e25",
@@ -183,7 +321,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1320,
+        1680,
         0
       ]
     },
@@ -198,8 +336,8 @@
           },
           "conditions": [
             {
-              "id": "900c04f4-aaae-5f3d-9018-c3066cfbfbeb",
-              "leftValue": "={{ $('Rows marked Ready').item.json['Publish At'] }}",
+              "id": "4c23c44a-c593-5c5e-898c-24314ea2f510",
+              "leftValue": "={{ $('Post to check').item.json.publishAt }}",
               "rightValue": "",
               "operator": {
                 "type": "string",
@@ -218,53 +356,90 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1540,
-        -120
+        1900,
+        -200
       ]
     },
     {
       "parameters": {
         "resource": "post",
         "operation": "create",
-        "channels": "={{ $('Rows marked Ready').item.json.Channels }}",
-        "content": "={{ $('Rows marked Ready').item.json.Text }}",
+        "channels": "={{ $('Post to check').item.json.channels }}",
+        "content": "={{ $('Post to check').item.json.text }}",
         "additionalFields": {
-          "mediaIds": "={{ $json.kind ? $json.id : '' }}",
-          "linkUrl": "={{ $('Rows marked Ready').item.json.Link }}"
+          "mediaIds": "={{ $('Post to check').item.json.mediaId }}",
+          "linkUrl": "={{ $('Post to check').item.json.link }}"
         },
         "when": "scheduled",
-        "scheduledAt": "={{ $('Rows marked Ready').item.json['Publish At'] }}",
-        "idempotencyKey": "={{ 'sheet-' + $('Rows marked Ready').item.json.row_number + '-' + $('Rows marked Ready').item.json.Text.hash('sha256') }}"
+        "scheduledAt": "={{ $('Post to check').item.json.publishAt }}",
+        "idempotencyKey": "={{ 'sheet-' + $('Post to check').item.json.row_number + '-' + $('Post to check').item.json.text.hash('sha256') }}"
       },
       "id": "b4c9efb4-1e12-5d40-bd17-83bf2c035ba7",
       "name": "Schedule in Preflight",
       "type": "n8n-nodes-preflight.preflight",
       "typeVersion": 1,
       "position": [
-        1760,
-        -220
-      ]
+        2140,
+        -320
+      ],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "resource": "post",
         "operation": "create",
-        "channels": "={{ $('Rows marked Ready').item.json.Channels }}",
-        "content": "={{ $('Rows marked Ready').item.json.Text }}",
+        "channels": "={{ $('Post to check').item.json.channels }}",
+        "content": "={{ $('Post to check').item.json.text }}",
         "additionalFields": {
-          "mediaIds": "={{ $json.kind ? $json.id : '' }}",
-          "linkUrl": "={{ $('Rows marked Ready').item.json.Link }}"
+          "mediaIds": "={{ $('Post to check').item.json.mediaId }}",
+          "linkUrl": "={{ $('Post to check').item.json.link }}"
         },
         "when": "queue",
-        "idempotencyKey": "={{ 'sheet-' + $('Rows marked Ready').item.json.row_number + '-' + $('Rows marked Ready').item.json.Text.hash('sha256') }}"
+        "idempotencyKey": "={{ 'sheet-' + $('Post to check').item.json.row_number + '-' + $('Post to check').item.json.text.hash('sha256') }}"
       },
       "id": "6b7ae939-ea13-5c2a-880a-353f9404548b",
       "name": "Queue in Preflight",
       "type": "n8n-nodes-preflight.preflight",
       "typeVersion": 1,
       "position": [
-        1760,
-        -40
+        2140,
+        -120
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "da456735-88ab-5610-896e-2a9c4d6b5ac4",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "df989ad4-7fb4-5ec9-a24d-9bde1b9b3d3e",
+      "name": "Made the post?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2380,
+        -200
       ]
     },
     {
@@ -272,18 +447,18 @@
         "operation": "update",
         "documentId": {
           "__rl": true,
-          "value": "",
-          "mode": "list"
+          "value": "={{ $('Configuration').first().json.sheetUrl }}",
+          "mode": "url"
         },
         "sheetName": {
           "__rl": true,
-          "value": "",
-          "mode": "list"
+          "value": "Posts",
+          "mode": "name"
         },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "row_number": "={{ $('Rows marked Ready').item.json.row_number }}",
+            "row_number": "={{ $('Post to check').item.json.row_number }}",
             "Status": "Scheduled",
             "Preflight Post ID": "={{ $json.id }}",
             "Issues": ""
@@ -291,7 +466,44 @@
           "matchingColumns": [
             "row_number"
           ],
-          "schema": []
+          "schema": [
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Preflight Post ID",
+              "displayName": "Preflight Post ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Issues",
+              "displayName": "Issues",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
         },
         "options": {}
       },
@@ -300,8 +512,8 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
       "position": [
-        1980,
-        -120
+        2620,
+        -300
       ]
     },
     {
@@ -309,25 +521,62 @@
         "operation": "update",
         "documentId": {
           "__rl": true,
-          "value": "",
-          "mode": "list"
+          "value": "={{ $('Configuration').first().json.sheetUrl }}",
+          "mode": "url"
         },
         "sheetName": {
           "__rl": true,
-          "value": "",
-          "mode": "list"
+          "value": "Posts",
+          "mode": "name"
         },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "row_number": "={{ $('Rows marked Ready').item.json.row_number }}",
+            "row_number": "={{ $('Post to check').item.json.row_number }}",
             "Status": "Needs fix",
             "Issues": "={{ $json.issues.map(i => (i.platform ? i.platform + ': ' : '') + i.message).join('\\n') }}"
           },
           "matchingColumns": [
             "row_number"
           ],
-          "schema": []
+          "schema": [
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Preflight Post ID",
+              "displayName": "Preflight Post ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Issues",
+              "displayName": "Issues",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
         },
         "options": {}
       },
@@ -336,13 +585,97 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
       "position": [
-        1540,
-        140
+        1900,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Configuration').first().json.sheetUrl }}",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Posts",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $('Post to check').item.json.row_number }}",
+            "Status": "Error",
+            "Issues": "={{ [$json.error, $json.description].filter(Boolean).join(': ') || 'Preflight refused the post' }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Preflight Post ID",
+              "displayName": "Preflight Post ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Issues",
+              "displayName": "Issues",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2785bfa5-9865-59f0-9679-1afe310a1d78",
+      "name": "Mark Error",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2620,
+        360
       ]
     }
   ],
   "connections": {
     "Every 15 minutes": {
+      "main": [
+        [
+          {
+            "node": "Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configuration": {
       "main": [
         [
           {
@@ -375,9 +708,9 @@
         ],
         [
           {
-            "node": "Together again",
+            "node": "Post to check",
             "type": "main",
-            "index": 1
+            "index": 0
           }
         ]
       ]
@@ -386,14 +719,14 @@
       "main": [
         [
           {
-            "node": "Together again",
+            "node": "Post to check",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Together again": {
+    "Post to check": {
       "main": [
         [
           {
@@ -455,7 +788,7 @@
       "main": [
         [
           {
-            "node": "Mark Scheduled",
+            "node": "Made the post?",
             "type": "main",
             "index": 0
           }
@@ -466,7 +799,25 @@
       "main": [
         [
           {
+            "node": "Made the post?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Made the post?": {
+      "main": [
+        [
+          {
             "node": "Mark Scheduled",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Error",
             "type": "main",
             "index": 0
           }

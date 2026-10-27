@@ -1,19 +1,84 @@
 {
-  "name": "Blog RSS to AI-written social drafts, checked by Preflight",
+  "name": "Turn new blog posts into AI-written social drafts checked against each network's rules",
   "nodes": [
     {
       "parameters": {
-        "content": "## Blog RSS → AI caption → Preflight drafts\n\nEvery hour, new articles from your feed get a short social caption from an AI model. Preflight checks the caption against every chosen network's publishing rules (length counted the network's way, links, hashtags, media). Posts that pass land in Preflight as **drafts** for a person to approve. Nothing is published.\n\n**Set up**\n1. Put your feed URL in **Read feed**.\n2. Add an OpenAI credential to **OpenAI model** (or swap in any chat model).\n3. In both Preflight nodes pick your Preflight credential and the same channels.\n\nThe idempotency key is a hash of the article link, so an article never becomes two drafts.",
-        "height": 420,
-        "width": 460
+        "content": "## Turn new blog posts into social drafts that every network accepts\n\nFor content marketers who want a social post for every new article without checking each network's rules by hand.\n\n### How it works\n1. Every hour the workflow reads your RSS feed and keeps only articles it has not seen before.\n2. Claude writes a short caption for each one.\n3. Preflight checks the caption and the link against the rules of every channel you chose: length counted the way each network counts it, link and hashtag rules, plan limits.\n4. If a network would refuse it, Claude rewrites it once using Preflight's exact reasons (for example \"Text is 385 characters; Bluesky allows 300.\") and Preflight checks again.\n5. Captions that pass are saved in Preflight as **drafts** for a person to approve. Nothing is published.\n\n### Setup\n1. Needs the verified community node **Preflight** ([n8n-nodes-preflight](https://www.npmjs.com/package/n8n-nodes-preflight) 0.1.1 or later): search for Preflight in the nodes panel and choose Install. Tested on n8n 2.43.\n2. In [Preflight](https://preflight.social) (the free plan works), connect your social accounts, then create an API key under Settings → API keys with the scopes `posts:read` and `posts:write`. That key can make drafts but can never publish. Add it as a **Preflight API** credential in the three Preflight nodes.\n3. Add an Anthropic credential to **Claude**.\n4. In **Configuration**, set your feed URL and your channels, e.g. `bluesky, mastodon, linkedin`.\n\n### Customization\n- Change the caption rules in **Write caption** (tone, hashtags, language).\n- Swap Claude for any chat model.\n- Send **Still refused** to Slack or e-mail so someone writes those by hand.",
+        "height": 880,
+        "width": 560,
+        "color": 1
       },
-      "id": "cdae7702-93ca-54b9-953b-66c9cef63aea",
-      "name": "About",
+      "id": "c88af001-075a-515c-8f12-94a87bd7ab89",
+      "name": "Overview",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -520,
-        -240
+        -760,
+        -380
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 1. New articles\nReads the feed and skips anything seen in an earlier run. At most three per run, so a long backlog does not flood your drafts.",
+        "height": 360,
+        "width": 1100,
+        "color": 7
+      },
+      "id": "cbd85a4c-b30f-518f-868f-f6de2f15bb5e",
+      "name": "Section: new articles",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 2. Caption and rules check\nClaude writes the caption; Preflight answers `ok` or a list of issues per network.",
+        "height": 520,
+        "width": 680,
+        "color": 7
+      },
+      "id": "6ef64f58-bca3-5953-9bd5-d3f8912d15d6",
+      "name": "Section: caption and check",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 3. One rewrite\nThe issues go back to Claude once. A caption that still fails stops here for a person.",
+        "height": 440,
+        "width": 1000,
+        "color": 7
+      },
+      "id": "e3dd06b8-81c6-5742-acbd-25853d2168cd",
+      "name": "Section: rewrite once",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1800,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 4. Save as draft\nThe idempotency key is a hash of the article link, so an article never becomes two drafts. A refused save goes to **Not saved**.",
+        "height": 420,
+        "width": 1720,
+        "color": 7
+      },
+      "id": "d851e5c9-ff20-53a5-947b-7b94fa7e4413",
+      "name": "Section: save",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1800,
+        -320
       ]
     },
     {
@@ -38,7 +103,36 @@
     },
     {
       "parameters": {
-        "url": "https://preflight.social/blog/feed.xml",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "98b67ade-c356-5745-852c-4b504016494b",
+              "name": "feedUrl",
+              "value": "https://preflight.social/blog/feed.xml",
+              "type": "string"
+            },
+            {
+              "id": "1e55a830-37f1-57c2-92cd-3e19277b8122",
+              "name": "channels",
+              "value": "bluesky, mastodon",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b8580772-0d5c-5b83-b73d-4f4c0b610c33",
+      "name": "Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Configuration').first().json.feedUrl }}",
         "options": {}
       },
       "id": "f2592674-6e60-5b45-a802-4ee36766de81",
@@ -46,7 +140,7 @@
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.2,
       "position": [
-        220,
+        440,
         0
       ]
     },
@@ -61,7 +155,7 @@
       "type": "n8n-nodes-base.removeDuplicates",
       "typeVersion": 2,
       "position": [
-        440,
+        660,
         0
       ]
     },
@@ -74,7 +168,7 @@
       "type": "n8n-nodes-base.limit",
       "typeVersion": 1,
       "position": [
-        660,
+        880,
         0
       ]
     },
@@ -88,7 +182,7 @@
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.7,
       "position": [
-        880,
+        1120,
         0
       ]
     },
@@ -96,26 +190,26 @@
       "parameters": {
         "model": {
           "__rl": true,
-          "value": "gpt-4o-mini",
+          "value": "claude-haiku-4-5",
           "mode": "list",
-          "cachedResultName": "gpt-4o-mini"
+          "cachedResultName": "Claude Haiku 4.5"
         },
         "options": {}
       },
-      "id": "0267beb2-d65a-5709-b966-954f828e1e98",
-      "name": "OpenAI model",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.2,
+      "id": "1c02b7e9-e703-5c5a-8375-76eccc26eba4",
+      "name": "Claude",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.6,
       "position": [
-        880,
-        200
+        1240,
+        220
       ]
     },
     {
       "parameters": {
         "resource": "post",
         "operation": "validate",
-        "channels": [],
+        "channels": "={{ $('Configuration').first().json.channels }}",
         "content": "={{ $json.text.trim() }}",
         "additionalFields": {
           "linkUrl": "={{ $('Only new articles').item.json.link }}"
@@ -126,9 +220,12 @@
       "type": "n8n-nodes-preflight.preflight",
       "typeVersion": 1,
       "position": [
-        1240,
+        1440,
         0
-      ]
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
     },
     {
       "parameters": {
@@ -136,7 +233,7 @@
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "strict",
+            "typeValidation": "loose",
             "version": 2
           },
           "conditions": [
@@ -153,6 +250,7 @@
           ],
           "combinator": "and"
         },
+        "looseTypeValidation": true,
         "options": {}
       },
       "id": "a0cfcc0e-1f2b-5a92-b0d9-51ae01c33dde",
@@ -160,16 +258,162 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1460,
+        1640,
         0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3a40db7a-0acc-5d7a-80c5-8e14bd40a70d",
+              "name": "caption",
+              "value": "={{ $('Write caption').item.json.text.trim() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8a8cb918-bb1b-5d65-8084-62b3bf54814a",
+      "name": "Use first caption",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1880,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=This social media post breaks some networks' rules. Rewrite it so it fixes every issue below and keeps the meaning. Write one or two short sentences, under 200 characters in total, with at most two hashtags and no link. Reply with the post text only.\n\nPost: {{ $('Write caption').item.json.text.trim() }}\n\nIssues:\n{{ $json.issues.map(i => (i.platform ? i.platform + ': ' : '') + i.message).join('\\n') }}"
+      },
+      "id": "d1687f50-12ea-57a9-abeb-b8b50fdb4915",
+      "name": "Rewrite with the reasons",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        1880,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "post",
+        "operation": "validate",
+        "channels": "={{ $('Configuration').first().json.channels }}",
+        "content": "={{ $json.text.trim() }}",
+        "additionalFields": {
+          "linkUrl": "={{ $('Only new articles').item.json.link }}"
+        }
+      },
+      "id": "adc32bb2-07c8-5a82-bf4f-21e9df3ba5aa",
+      "name": "Check the rewrite",
+      "type": "n8n-nodes-preflight.preflight",
+      "typeVersion": 1,
+      "position": [
+        2200,
+        280
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "58aa6f09-49ae-55c8-9b9a-41b196c3cb78",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "63be7da2-ba10-5699-a168-9c98de185efb",
+      "name": "Rewrite passes?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2420,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6b204637-24f3-5460-b0da-3dc985979493",
+              "name": "caption",
+              "value": "={{ $('Rewrite with the reasons').item.json.text.trim() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1421ed44-7562-5362-9c6b-1cb6dd8bfa6d",
+      "name": "Use rewrite",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2640,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ecc5ce16-1843-570c-943e-3076f454f45e",
+              "name": "article",
+              "value": "={{ $('Only new articles').item.json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "ea8f349d-42ad-554e-9d43-84c6ed8ee062",
+              "name": "issues",
+              "value": "={{ $json.issues.map(i => (i.platform ? i.platform + ': ' : '') + i.message).join('\\n') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bdfe23cf-761c-5dea-817e-4ce1a9e9d26a",
+      "name": "Still refused",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2640,
+        400
       ]
     },
     {
       "parameters": {
         "resource": "post",
         "operation": "create",
-        "channels": [],
-        "content": "={{ $('Write caption').item.json.text.trim() }}",
+        "channels": "={{ $('Configuration').first().json.channels }}",
+        "content": "={{ $json.caption }}",
         "when": "draft",
         "idempotencyKey": "={{ 'rss-' + $('Only new articles').item.json.link.hash('sha256') }}",
         "additionalFields": {
@@ -181,8 +425,44 @@
       "type": "n8n-nodes-preflight.preflight",
       "typeVersion": 1,
       "position": [
-        1680,
-        -100
+        2860,
+        -160
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "da456735-88ab-5610-896e-2a9c4d6b5ac4",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "6b0c5ff4-2176-550c-bf99-2e3dee40614e",
+      "name": "Draft saved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3080,
+        -160
       ]
     },
     {
@@ -190,33 +470,44 @@
         "assignments": {
           "assignments": [
             {
-              "id": "2cef8161-fe86-5e93-9dfa-e3307f13e43e",
+              "id": "5847fe3a-756f-5456-9280-db3e0401c04a",
               "name": "article",
               "value": "={{ $('Only new articles').item.json.title }}",
               "type": "string"
             },
             {
-              "id": "9c546726-4bea-56b6-b540-d957627311a9",
-              "name": "issues",
-              "value": "={{ $json.issues.map(i => (i.platform ? i.platform + ': ' : '') + i.message).join('\\n') }}",
+              "id": "4689d197-b323-59d3-ab6d-506e7551070c",
+              "name": "error",
+              "value": "={{ [$json.error, $json.description].filter(Boolean).join(': ') || 'Preflight refused the post' }}",
               "type": "string"
             }
           ]
         },
         "options": {}
       },
-      "id": "64b5df58-51de-5e1d-aff1-a8dc992fc2f1",
-      "name": "Needs a human",
+      "id": "4dd63f11-b701-57d4-8056-a0532a35c148",
+      "name": "Not saved",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        1680,
-        100
+        3300,
+        -60
       ]
     }
   ],
   "connections": {
     "Every hour": {
+      "main": [
+        [
+          {
+            "node": "Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configuration": {
       "main": [
         [
           {
@@ -282,11 +573,16 @@
         ]
       ]
     },
-    "OpenAI model": {
+    "Claude": {
       "ai_languageModel": [
         [
           {
             "node": "Write caption",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Rewrite with the reasons",
             "type": "ai_languageModel",
             "index": 0
           }
@@ -297,14 +593,99 @@
       "main": [
         [
           {
-            "node": "Save as draft in Preflight",
+            "node": "Use first caption",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Needs a human",
+            "node": "Rewrite with the reasons",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rewrite with the reasons": {
+      "main": [
+        [
+          {
+            "node": "Check the rewrite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check the rewrite": {
+      "main": [
+        [
+          {
+            "node": "Rewrite passes?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rewrite passes?": {
+      "main": [
+        [
+          {
+            "node": "Use rewrite",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Still refused",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use first caption": {
+      "main": [
+        [
+          {
+            "node": "Save as draft in Preflight",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use rewrite": {
+      "main": [
+        [
+          {
+            "node": "Save as draft in Preflight",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save as draft in Preflight": {
+      "main": [
+        [
+          {
+            "node": "Draft saved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft saved?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Not saved",
             "type": "main",
             "index": 0
           }
