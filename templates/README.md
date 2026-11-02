@@ -1,6 +1,6 @@
 # Example workflows
 
-Five workflows for the Preflight node, laid out the way the n8n template gallery asks: an overview sticky note (How it works, Setup, Customization), a short note over each group of nodes, and a **Configuration** node with everything you have to change. Import a JSON file in n8n with **Import from File**, fill in Configuration and pick your credentials.
+Five workflows for the Preflight node, laid out the way the n8n template gallery asks: an overview sticky note (How it works, Setup, Customization) and a **Configuration** node with everything you have to change. All but the Notion template also have a short note over each group of nodes. Import a JSON file in n8n with **Import from File**, fill in Configuration and pick your credentials.
 
 | File | Trigger | Uses | Result |
 | --- | --- | --- | --- |
@@ -12,12 +12,13 @@ Five workflows for the Preflight node, laid out the way the n8n template gallery
 
 Screenshots of each canvas are in [`images/`](images): [RSS → drafts](images/01-rss-ai-drafts.png), [Google Sheets](images/02-google-sheets-calendar.png), [vertical video](images/03-video-shorts-reels-tiktok.png), [Slack alert](images/05-failed-post-slack-alert.png).
 
-What they have in common:
+What the four that make posts have in common:
 
-- **Validate before create.** Every workflow asks Preflight whether each network would accept the post, and only creates it when the answer is yes. A refusal comes back as a plain sentence such as "Text is 385 characters; Bluesky allows 300."
+- **Validate before create.** Each one asks Preflight whether each network would accept the post, and only creates it when the answer is yes. A refusal comes back as a plain sentence such as "Text is 385 characters; Bluesky allows 300."
 - **Stable idempotency keys**, built from the article link, the sheet row, the Notion page or the uploaded file, so running a workflow twice never makes two posts.
-- **Errors become data.** The Preflight nodes that create posts are set to continue on error, and an If node after them sends a refusal to the sheet, the form or a "Not saved" node instead of stopping the run.
 - **Nothing goes live by surprise.** Template 1 makes drafts with a key that cannot publish; TikTok in template 3 goes to the creator's inbox with privacy *Only me* until you change it.
+
+In templates 1, 2 and 3 errors also become data: the Preflight nodes that create posts are set to continue on error, and an If node after them sends a refusal to the sheet, the form or a "Not saved" node instead of stopping the run. In the Notion template a refused Create stops the run.
 
 Templates 1, 2 and 3 were run end to end with node 0.1.1 against real Preflight workspaces, every branch included: 1 and 3 on self-hosted n8n 2.43 (template 3 with Create switched to drafts), 2 on n8n Cloud with a real Google Sheet, in a Czech-locale spreadsheet, including a row set back to Ready, a corrected row and a file URL that returns 404.
 
