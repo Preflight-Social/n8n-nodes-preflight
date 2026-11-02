@@ -282,7 +282,7 @@ def sheets_calendar() -> Workflow:
         'the post ID.\n'
         '5. Rows that fail get `Needs fix` and the reason, e.g. "Text is 385 characters; Bluesky allows 300."\n\n'
         '### Setup\n'
-        f'1. {REQUIREMENTS}\n'
+        f"1. {REQUIREMENTS.replace('n8n 2.43', 'n8n Cloud 2.45')}\n"
         f'2. {API_KEY} with the scopes `posts:read`, `posts:write`, `posts:publish`, `media:read` and '
         '`media:write`. Add it as a **Preflight API** credential in the four Preflight nodes.\n'
         f'3. Make a sheet with a tab named `Posts` and this header row:\n`{SHEET_COLUMNS}`\n'
