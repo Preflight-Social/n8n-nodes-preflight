@@ -3,7 +3,7 @@
 ## Unreleased
 
 - **Preflight** node: with "On Error: Continue (using error output)", a failed item now goes to the error output. Until now it stayed on the success output, because n8n only moves an item that carries the error itself.
-- Templates rebuilt for the n8n template gallery: overview and section sticky notes, a Configuration node, refusals handled as data. The RSS template rewrites a refused caption once with Preflight's reasons and uses Anthropic. The alert template is Slack only, and the Google Sheets template now keeps the uploaded file on the post.
+- Templates rebuilt for the n8n template gallery: overview and section sticky notes, a Configuration node, refusals handled as data. The RSS template rewrites a refused caption once with Preflight's reasons and uses Anthropic. The alert template is Slack only, and the Google Sheets template now keeps the uploaded file on the post, reads date cells regardless of the sheet's locale, and a file it cannot fetch marks only its own row.
 
 ## 0.1.1
 

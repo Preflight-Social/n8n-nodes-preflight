@@ -297,7 +297,7 @@ def sheets_calendar() -> Workflow:
            'drafting in the same tab. Everything the workflow decides is written back here.',
            -60, -160, 720, 360)
     w.note('Section: media', '### 2. Measure the file first\nRules depend on the real file: length, frame rate, '
-           'aspect ratio, size. Rows without a file skip this step.',
+           'aspect ratio, size. A file that cannot be fetched marks only its own row `Error`.',
            700, -280, 680, 480)
     w.note('Section: check and schedule', '### 3. Check, then schedule or queue\nA refused row never reaches the '
            'scheduler. The idempotency key is the row and a hash of its text, so overlapping runs cannot make two posts.',
@@ -324,7 +324,8 @@ def sheets_calendar() -> Workflow:
     w.node('Upload file to Preflight', PREFLIGHT, {
         'resource': 'media', 'operation': 'upload', 'source': 'url',
         'sourceUrl': "={{ $json['Media URL'] }}", 'kind': 'auto', 'waitUntilReady': True,
-    }, 1, 1000, -140)
+    }, 1, 940, -140, onError='continueRegularOutput')
+    w.node('File uploaded?', 'n8n-nodes-base.if', SAVED, 2.2, 1120, -140)
     row = "$('Rows marked Ready').item.json"
     w.node('Post to check', 'n8n-nodes-base.set', fields('sheets-post', [
         ('row_number', f'={{{{ {row}.row_number }}}}', 'number'),
@@ -362,7 +363,7 @@ def sheets_calendar() -> Workflow:
             'operation': 'update', 'documentId': document, 'sheetName': tab,
             'columns': {
                 'mappingMode': 'defineBelow',
-                'value': {'row_number': f'={{{{ {post}.row_number }}}}', 'Status': status, **extra},
+                'value': {'row_number': f'={{{{ {row}.row_number }}}}', 'Status': status, **extra},
                 'matchingColumns': ['row_number'],
                 'schema': [
                     {'id': column, 'displayName': column, 'required': False, 'defaultMatch': False,
@@ -383,7 +384,9 @@ def sheets_calendar() -> Workflow:
     w.chain('Every 15 minutes', 'Configuration', 'Rows marked Ready', 'Has a file?')
     w.link('Has a file?', 'Upload file to Preflight', 0)
     w.link('Has a file?', 'Post to check', 1)
-    w.link('Upload file to Preflight', 'Post to check')
+    w.link('Upload file to Preflight', 'File uploaded?')
+    w.link('File uploaded?', 'Post to check', 0)
+    w.link('File uploaded?', 'Mark Error', 1)
     w.chain('Post to check', 'Check against network rules', 'Passes every network?')
     w.link('Passes every network?', 'Has a time?', 0)
     w.link('Passes every network?', 'Mark Needs fix', 1)

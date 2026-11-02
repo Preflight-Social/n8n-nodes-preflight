@@ -19,7 +19,7 @@ What they have in common:
 - **Errors become data.** The Preflight nodes that create posts are set to continue on error, and an If node after them sends a refusal to the sheet, the form or a "Not saved" node instead of stopping the run.
 - **Nothing goes live by surprise.** Template 1 makes drafts with a key that cannot publish; TikTok in template 3 goes to the creator's inbox with privacy *Only me* until you change it.
 
-Templates 1, 2 and 3 were run end to end with node 0.1.1 against real Preflight workspaces, every branch included: 1 and 3 on self-hosted n8n 2.43 (template 3 with Create switched to drafts), 2 on n8n Cloud with a real Google Sheet, in a Czech-locale spreadsheet, including a row set back to Ready and a corrected row.
+Templates 1, 2 and 3 were run end to end with node 0.1.1 against real Preflight workspaces, every branch included: 1 and 3 on self-hosted n8n 2.43 (template 3 with Create switched to drafts), 2 on n8n Cloud with a real Google Sheet, in a Czech-locale spreadsheet, including a row set back to Ready, a corrected row and a file URL that returns 404.
 
 ## Rebuilding
 

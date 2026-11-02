@@ -35,7 +35,7 @@
     },
     {
       "parameters": {
-        "content": "### 2. Measure the file first\nRules depend on the real file: length, frame rate, aspect ratio, size. Rows without a file skip this step.",
+        "content": "### 2. Measure the file first\nRules depend on the real file: length, frame rate, aspect ratio, size. A file that cannot be fetched marks only its own row `Error`.",
         "height": 480,
         "width": 680,
         "color": 7
@@ -217,7 +217,43 @@
       "type": "n8n-nodes-preflight.preflight",
       "typeVersion": 1,
       "position": [
-        1000,
+        940,
+        -140
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "da456735-88ab-5610-896e-2a9c4d6b5ac4",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "d754ef01-f5f6-5671-b998-984567b75f03",
+      "name": "File uploaded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
         -140
       ]
     },
@@ -465,7 +501,7 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "row_number": "={{ $('Post to check').item.json.row_number }}",
+            "row_number": "={{ $('Rows marked Ready').item.json.row_number }}",
             "Status": "Scheduled",
             "Preflight Post ID": "={{ $json.id }}",
             "Issues": ""
@@ -539,7 +575,7 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "row_number": "={{ $('Post to check').item.json.row_number }}",
+            "row_number": "={{ $('Rows marked Ready').item.json.row_number }}",
             "Status": "Needs fix",
             "Issues": "={{ $json.issues.map(i => (i.platform ? i.platform + ': ' : '') + i.message).join('\\n') }}"
           },
@@ -612,7 +648,7 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "row_number": "={{ $('Post to check').item.json.row_number }}",
+            "row_number": "={{ $('Rows marked Ready').item.json.row_number }}",
             "Status": "Error",
             "Issues": "={{ 'Error: ' + ([$json.error, $json.description].filter(Boolean).join(' ') || 'Preflight refused the post') }}"
           },
@@ -726,7 +762,25 @@
       "main": [
         [
           {
+            "node": "File uploaded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "File uploaded?": {
+      "main": [
+        [
+          {
             "node": "Post to check",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Error",
             "type": "main",
             "index": 0
           }
