@@ -478,7 +478,7 @@
             {
               "id": "4689d197-b323-59d3-ab6d-506e7551070c",
               "name": "error",
-              "value": "={{ [$json.error, $json.description].filter(Boolean).join(': ') || 'Preflight refused the post' }}",
+              "value": "={{ 'Error: ' + ([$json.error, $json.description].filter(Boolean).join(' ') || 'Preflight refused the post') }}",
               "type": "string"
             }
           ]

@@ -283,7 +283,7 @@
       "parameters": {
         "operation": "completion",
         "completionTitle": "Not queued",
-        "completionMessage": "={{ [$json.error, $json.description].filter(Boolean).join(': ') || 'Preflight refused the post' }}",
+        "completionMessage": "={{ 'Error: ' + ([$json.error, $json.description].filter(Boolean).join(' ') || 'Preflight refused the post') }}",
         "options": {}
       },
       "id": "7f8f25b4-aac1-579e-a055-ae860452e19d",

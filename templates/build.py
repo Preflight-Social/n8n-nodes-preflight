@@ -109,7 +109,8 @@ def if_not_empty(field):
 # with `error` (and `description`) instead of stopping the workflow; this If
 # sends the items that made a post down its true branch.
 SAVED = if_not_empty('={{ $json.id }}')
-ERROR_TEXT = "={{ [$json.error, $json.description].filter(Boolean).join(': ') || 'Preflight refused the post' }}"
+# Starts with a word: Google Sheets swallows a leading apostrophe, and some messages begin with one.
+ERROR_TEXT = "={{ 'Error: ' + ([$json.error, $json.description].filter(Boolean).join(' ') || 'Preflight refused the post') }}"
 
 
 def fields(slug, pairs, include_other=False):
@@ -270,15 +271,15 @@ def sheets_calendar() -> Workflow:
     w = Workflow('Schedule social media posts from a Google Sheets calendar, checked before they go out', 'sheets')
     w.note(
         'Overview',
-        '## Schedule posts from a Google Sheets content calendar\n\n'
-        'For teams that plan social posts in a spreadsheet and want each one checked before it is scheduled, '
-        'not when it fails at publishing time.\n\n'
+        '## Schedule posts from a Google Sheets calendar, checked before they go out\n\n'
+        'For teams that plan social posts in a spreadsheet and want to hear about a too-long caption or a '
+        'wrong-shaped video when the row is marked ready, not when it fails at night.\n\n'
         '### How it works\n'
-        '1. Every 15 minutes the workflow reads rows whose **Status** is `Ready`.\n'
-        '2. A **Media URL** is uploaded to Preflight first, which measures the image or video.\n'
+        '1. Every 15 minutes it reads rows whose **Status** is `Ready`.\n'
+        '2. A **Media URL** is uploaded to Preflight first, which measures the file.\n'
         '3. Preflight checks text, link and media against the rules of every channel in the row.\n'
-        '4. Rows that pass are scheduled for **Publish At**, or queued for the next free slot when it is empty. '
-        'The row gets `Scheduled` and the Preflight post ID.\n'
+        '4. Rows that pass are scheduled for **Publish At**, or queued when it is empty, and get `Scheduled` and '
+        'the post ID.\n'
         '5. Rows that fail get `Needs fix` and the reason, e.g. "Text is 385 characters; Bluesky allows 300."\n\n'
         '### Setup\n'
         f'1. {REQUIREMENTS}\n'
@@ -287,20 +288,22 @@ def sheets_calendar() -> Workflow:
         f'3. Make a sheet with a tab named `Posts` and this header row:\n`{SHEET_COLUMNS}`\n'
         '4. In **Configuration**, paste the sheet\'s URL. Add a Google Sheets credential to the four Sheets nodes.\n\n'
         '### Customization\n'
-        '- **Channels**: network names such as `bluesky, linkedin`, or `platform:channelId` for two accounts on one '
-        'network. Empty uses **defaultChannels** from Configuration.\n'
-        '- **Publish At** (`2026-11-02 09:30`) is read in the workflow\'s time zone, set under Workflow settings.',
+        '- **Channels**: `bluesky, linkedin`, or `platform:channelId` for two accounts on one network. Empty uses '
+        '**defaultChannels**.\n'
+        '- **Publish At** (`2026-11-02 09:30`) uses the workflow\'s time zone, set under Workflow settings.',
         -800, -420, 600, 960, YELLOW,
     )
-    w.note('Section: read rows', '### 1. Rows marked Ready\nRead from the sheet in Configuration, tab `Posts`.',
+    w.note('Section: read rows', '### 1. The sheet is the source of truth\nOnly `Ready` rows run, so people can keep '
+           'drafting in the same tab. Everything the workflow decides is written back here.',
            -60, -160, 720, 360)
-    w.note('Section: media', '### 2. Media\nA Media URL is uploaded and measured first; rows without one skip this.',
+    w.note('Section: media', '### 2. Measure the file first\nRules depend on the real file: length, frame rate, '
+           'aspect ratio, size. Rows without a file skip this step.',
            700, -280, 680, 480)
-    w.note('Section: check and schedule', '### 3. Check, then schedule or queue\nThe idempotency key is the row '
-           'and a hash of its text, so a row never becomes two posts.',
+    w.note('Section: check and schedule', '### 3. Check, then schedule or queue\nA refused row never reaches the '
+           'scheduler. The idempotency key is the row and a hash of its text, so overlapping runs cannot make two posts.',
            1400, -440, 1440, 620)
-    w.note('Section: write back', '### 4. Write the result back\nA refusal or an API error lands in **Issues** '
-           'so the row can be fixed and set to Ready again.',
+    w.note('Section: write back', '### 4. Nothing disappears quietly\nA refusal or an API error lands in **Issues**. '
+           'Fix the row, set it to `Ready` again, and the next run picks it up.',
            1400, 220, 1440, 340)
 
     w.node('Every 15 minutes', 'n8n-nodes-base.scheduleTrigger',
@@ -314,7 +317,8 @@ def sheets_calendar() -> Workflow:
     w.node('Rows marked Ready', 'n8n-nodes-base.googleSheets', {
         'documentId': document, 'sheetName': tab,
         'filtersUI': {'values': [{'lookupColumn': 'Status', 'lookupValue': 'Ready'}]},
-        'options': {},
+        # A date cell as text depends on the sheet's locale; its serial number does not.
+        'options': {'outputFormatting': {'values': {'general': 'UNFORMATTED_VALUE', 'date': 'SERIAL_NUMBER'}}},
     }, 4.7, 440, 0)
     w.node('Has a file?', 'n8n-nodes-base.if', if_not_empty("={{ $json['Media URL'] }}"), 2.2, 760, 0)
     w.node('Upload file to Preflight', PREFLIGHT, {
@@ -326,7 +330,9 @@ def sheets_calendar() -> Workflow:
         ('row_number', f'={{{{ {row}.row_number }}}}', 'number'),
         ('text', f'={{{{ {row}.Text }}}}', 'string'),
         ('channels', f'={{{{ {row}.Channels || {CONFIG}.defaultChannels }}}}', 'string'),
-        ('publishAt', f"={{{{ {row}['Publish At'] }}}}", 'string'),
+        ('publishAt', f"={{{{ typeof {row}['Publish At'] === 'number' ? "
+                      f"DateTime.fromMillis(Math.round(({row}['Publish At'] - 25569) * 86400000), {{ zone: 'utc' }})"
+                      f".toFormat('yyyy-MM-dd HH:mm') : {row}['Publish At'] }}}}", 'string'),
         ('mediaId', "={{ $json.kind ? $json.id : '' }}", 'string'),
         ('link', f'={{{{ {row}.Link }}}}', 'string'),
     ]), 3.4, 1220, 0)

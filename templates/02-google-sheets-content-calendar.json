@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## Schedule posts from a Google Sheets content calendar\n\nFor teams that plan social posts in a spreadsheet and want each one checked before it is scheduled, not when it fails at publishing time.\n\n### How it works\n1. Every 15 minutes the workflow reads rows whose **Status** is `Ready`.\n2. A **Media URL** is uploaded to Preflight first, which measures the image or video.\n3. Preflight checks text, link and media against the rules of every channel in the row.\n4. Rows that pass are scheduled for **Publish At**, or queued for the next free slot when it is empty. The row gets `Scheduled` and the Preflight post ID.\n5. Rows that fail get `Needs fix` and the reason, e.g. \"Text is 385 characters; Bluesky allows 300.\"\n\n### Setup\n1. Needs the verified community node **Preflight** ([n8n-nodes-preflight](https://www.npmjs.com/package/n8n-nodes-preflight) 0.1.1 or later): search for Preflight in the nodes panel and choose Install. Tested on n8n 2.43.\n2. In [Preflight](https://preflight.social) (the free plan works), connect your social accounts, then create an API key under Settings → API keys with the scopes `posts:read`, `posts:write`, `posts:publish`, `media:read` and `media:write`. Add it as a **Preflight API** credential in the four Preflight nodes.\n3. Make a sheet with a tab named `Posts` and this header row:\n`Text | Channels | Publish At | Media URL | Link | Status | Preflight Post ID | Issues`\n4. In **Configuration**, paste the sheet's URL. Add a Google Sheets credential to the four Sheets nodes.\n\n### Customization\n- **Channels**: network names such as `bluesky, linkedin`, or `platform:channelId` for two accounts on one network. Empty uses **defaultChannels** from Configuration.\n- **Publish At** (`2026-11-02 09:30`) is read in the workflow's time zone, set under Workflow settings.",
+        "content": "## Schedule posts from a Google Sheets calendar, checked before they go out\n\nFor teams that plan social posts in a spreadsheet and want to hear about a too-long caption or a wrong-shaped video when the row is marked ready, not when it fails at night.\n\n### How it works\n1. Every 15 minutes it reads rows whose **Status** is `Ready`.\n2. A **Media URL** is uploaded to Preflight first, which measures the file.\n3. Preflight checks text, link and media against the rules of every channel in the row.\n4. Rows that pass are scheduled for **Publish At**, or queued when it is empty, and get `Scheduled` and the post ID.\n5. Rows that fail get `Needs fix` and the reason, e.g. \"Text is 385 characters; Bluesky allows 300.\"\n\n### Setup\n1. Needs the verified community node **Preflight** ([n8n-nodes-preflight](https://www.npmjs.com/package/n8n-nodes-preflight) 0.1.1 or later): search for Preflight in the nodes panel and choose Install. Tested on n8n 2.43.\n2. In [Preflight](https://preflight.social) (the free plan works), connect your social accounts, then create an API key under Settings → API keys with the scopes `posts:read`, `posts:write`, `posts:publish`, `media:read` and `media:write`. Add it as a **Preflight API** credential in the four Preflight nodes.\n3. Make a sheet with a tab named `Posts` and this header row:\n`Text | Channels | Publish At | Media URL | Link | Status | Preflight Post ID | Issues`\n4. In **Configuration**, paste the sheet's URL. Add a Google Sheets credential to the four Sheets nodes.\n\n### Customization\n- **Channels**: `bluesky, linkedin`, or `platform:channelId` for two accounts on one network. Empty uses **defaultChannels**.\n- **Publish At** (`2026-11-02 09:30`) uses the workflow's time zone, set under Workflow settings.",
         "height": 960,
         "width": 600,
         "color": 1
@@ -19,7 +19,7 @@
     },
     {
       "parameters": {
-        "content": "### 1. Rows marked Ready\nRead from the sheet in Configuration, tab `Posts`.",
+        "content": "### 1. The sheet is the source of truth\nOnly `Ready` rows run, so people can keep drafting in the same tab. Everything the workflow decides is written back here.",
         "height": 360,
         "width": 720,
         "color": 7
@@ -35,7 +35,7 @@
     },
     {
       "parameters": {
-        "content": "### 2. Media\nA Media URL is uploaded and measured first; rows without one skip this.",
+        "content": "### 2. Measure the file first\nRules depend on the real file: length, frame rate, aspect ratio, size. Rows without a file skip this step.",
         "height": 480,
         "width": 680,
         "color": 7
@@ -51,7 +51,7 @@
     },
     {
       "parameters": {
-        "content": "### 3. Check, then schedule or queue\nThe idempotency key is the row and a hash of its text, so a row never becomes two posts.",
+        "content": "### 3. Check, then schedule or queue\nA refused row never reaches the scheduler. The idempotency key is the row and a hash of its text, so overlapping runs cannot make two posts.",
         "height": 620,
         "width": 1440,
         "color": 7
@@ -67,7 +67,7 @@
     },
     {
       "parameters": {
-        "content": "### 4. Write the result back\nA refusal or an API error lands in **Issues** so the row can be fixed and set to Ready again.",
+        "content": "### 4. Nothing disappears quietly\nA refusal or an API error lands in **Issues**. Fix the row, set it to `Ready` again, and the next run picks it up.",
         "height": 340,
         "width": 1440,
         "color": 7
@@ -150,7 +150,14 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "outputFormatting": {
+            "values": {
+              "general": "UNFORMATTED_VALUE",
+              "date": "SERIAL_NUMBER"
+            }
+          }
+        }
       },
       "id": "b1dcb403-78bb-5eaa-95d7-dde27b3b8eca",
       "name": "Rows marked Ready",
@@ -239,7 +246,7 @@
             {
               "id": "d9412305-8f3e-5803-b2f6-ef7522c61e1f",
               "name": "publishAt",
-              "value": "={{ $('Rows marked Ready').item.json['Publish At'] }}",
+              "value": "={{ typeof $('Rows marked Ready').item.json['Publish At'] === 'number' ? DateTime.fromMillis(Math.round(($('Rows marked Ready').item.json['Publish At'] - 25569) * 86400000), { zone: 'utc' }).toFormat('yyyy-MM-dd HH:mm') : $('Rows marked Ready').item.json['Publish At'] }}",
               "type": "string"
             },
             {
@@ -607,7 +614,7 @@
           "value": {
             "row_number": "={{ $('Post to check').item.json.row_number }}",
             "Status": "Error",
-            "Issues": "={{ [$json.error, $json.description].filter(Boolean).join(': ') || 'Preflight refused the post' }}"
+            "Issues": "={{ 'Error: ' + ([$json.error, $json.description].filter(Boolean).join(' ') || 'Preflight refused the post') }}"
           },
           "matchingColumns": [
             "row_number"
