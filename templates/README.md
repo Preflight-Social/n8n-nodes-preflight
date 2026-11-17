@@ -1,6 +1,6 @@
 # Example workflows
 
-Five workflows for the Preflight node, laid out the way the n8n template gallery asks: an overview sticky note (How it works, Setup, Customization) and a **Configuration** node with everything you have to change. All but the Notion template also have a short note over each group of nodes. Import a JSON file in n8n with **Import from File**, fill in Configuration and pick your credentials.
+Six workflows for the Preflight node, laid out the way the n8n template gallery asks: an overview sticky note (How it works, Setup, Customization) and a **Configuration** node with everything you have to change. All but the Notion template also have a short note over each group of nodes. Import a JSON file in n8n with **Import from File**, fill in Configuration and pick your credentials.
 
 | File | Trigger | Uses | Result |
 | --- | --- | --- | --- |
@@ -9,10 +9,11 @@ Five workflows for the Preflight node, laid out the way the n8n template gallery
 | `03-vertical-video-shorts-reels-tiktok.json` | n8n Form (Basic Auth) | – | One vertical video checked and queued to YouTube Shorts, Instagram Reels and the TikTok inbox |
 | `04-notion-database-to-preflight.json` | Every 15 minutes | Notion | Pages `Ready` → scheduled; page updated with the post ID or the reason |
 | `05-failed-post-slack-alert.json` | Preflight Trigger (`post.failed`) | Slack | An alert per failed channel with the reason, whether a retry can work and a link to the post |
+| `06-telegram-ai-video-kling.json` | Telegram message | Telegram, Basic LLM Chain + Anthropic, HTTP Request (fal.ai) | An idea becomes a Kling clip, checked before the paid render and again on the real file, then queued for Shorts, Reels and TikTok after you tap Approve |
 
-Screenshots of each canvas are in [`images/`](images): [RSS → drafts](images/01-rss-ai-drafts.png), [Google Sheets](images/02-google-sheets-calendar.png), [vertical video](images/03-video-shorts-reels-tiktok.png), [Slack alert](images/05-failed-post-slack-alert.png).
+Screenshots of each canvas are in [`images/`](images): [RSS → drafts](images/01-rss-ai-drafts.png), [Google Sheets](images/02-google-sheets-calendar.png), [vertical video](images/03-video-shorts-reels-tiktok.png), [Slack alert](images/05-failed-post-slack-alert.png), [Telegram AI video](images/06-telegram-ai-video-kling.png).
 
-What the four that make posts have in common:
+What the five that make posts have in common:
 
 - **Validate before create.** Each one asks Preflight whether each network would accept the post, and only creates it when the answer is yes. A refusal comes back as a plain sentence such as "Text is 385 characters; Bluesky allows 300."
 - **Stable idempotency keys**, built from the article link, the sheet row, the Notion page or the uploaded file, so running a workflow twice never makes two posts.
@@ -21,6 +22,8 @@ What the four that make posts have in common:
 In templates 1, 2 and 3 errors also become data: the Preflight nodes that create posts are set to continue on error, and an If node after them sends a refusal to the sheet, the form or a "Not saved" node instead of stopping the run. In the Notion template a refused Create stops the run.
 
 Templates 1, 2 and 3 were run end to end with node 0.1.1 against real Preflight workspaces, every branch included: 1 and 3 on self-hosted n8n 2.43 (template 3 with Create switched to drafts), 2 on n8n Cloud with a real Google Sheet, in a Czech-locale spreadsheet, including a row set back to Ready, a corrected row and a file URL that returns 404.
+
+Template 6 was run on self-hosted n8n 2.43.7 against a real Telegram bot, Claude, fal.ai (Kling 2.6 Pro) and a Preflight workspace, with Create switched to drafts: a plan refused before rendering, one real render that passed both checks, Approve, Skip, a rendered file refused by the networks (a 20 fps clip in place of the render), a render result without a video, and a message from another chat. Only the first render was paid for; the other branches reused its result.
 
 ## Rebuilding
 

@@ -1,0 +1,1290 @@
+{
+  "name": "Turn a Telegram message into an AI short video, checked against each network before and after rendering",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Telegram idea → AI short video → approved → queued\n\nFor creators with ideas on the go: text one to your bot, get a vertical clip back, tap Approve, and it is queued for YouTube Shorts, Instagram Reels and TikTok.\n\n### How it works\n1. Claude turns an idea from your own chat into a video prompt, a caption and a YouTube title.\n2. Before any money is spent, Preflight checks the caption and planned clip against each channel's rules. A refusal comes back with the reason.\n3. Kling renders the clip on fal.ai (up to about ten minutes).\n4. Preflight measures the real file and checks it again.\n5. The bot sends the clip with Approve and Skip. Approve queues it for each channel's next free slot.\n\n### Setup\n1. Needs the verified community node **Preflight** ([n8n-nodes-preflight](https://www.npmjs.com/package/n8n-nodes-preflight) 0.1.1 or later): search for Preflight in the nodes panel and choose Install. Tested on self-hosted n8n 2.43.\n2. In [Preflight](https://preflight.social) (the free plan works), connect your social accounts, then create an API key under Settings → API keys with the scopes `posts:read`, `posts:write`, `posts:publish`, `media:read` and `media:write`. Add it as a **Preflight API** credential.\n3. Create a bot with @BotFather and add its token as a Telegram credential.\n4. Add an Anthropic credential to **Claude**, and your fal.ai key as Header Auth (`Authorization`: `Key YOUR_FAL_KEY`).\n5. In **Configuration**, set your channels and chat ID (message the bot once: it is `message.chat.id` in the trigger's output).\n\n### Customization\n- Each clip costs money on fal.ai: Kling 2.6 Pro is $0.07 per second, $0.14 with **withSound** on. Kling takes 5 or 10 **seconds**. For another model change **falModel** and **Start the render**.\n- TikTok goes to the inbox as **Only me** until you change the TikTok options.",
+        "height": 1040,
+        "width": 600,
+        "color": 1
+      },
+      "id": "945c76ad-0f8c-5058-a365-84813de018dc",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -800,
+        -460
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 1. Your idea, from your chat only\nAnyone can message a bot. Messages from other chats are ignored, so nobody else can spend your render credits.",
+        "height": 400,
+        "width": 960,
+        "color": 7
+      },
+      "id": "aa539df9-8f31-59ad-80db-541f0f94db4e",
+      "name": "Section: idea",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 2. Plan, then check for free\nThe caption and the planned clip are checked before rendering, so a post a network would refuse never costs a render.",
+        "height": 560,
+        "width": 1080,
+        "color": 7
+      },
+      "id": "6fe2a374-b300-5927-a6ff-5794035dacda",
+      "name": "Section: plan",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        940,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 3. Render and wait\nfal.ai queues the job. The loop checks every 20 seconds and gives up after about ten minutes.",
+        "height": 640,
+        "width": 1060,
+        "color": 7
+      },
+      "id": "0f52691b-e130-5d82-a093-ba358fb3c422",
+      "name": "Section: render",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2060,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 4. Check the real file\nLength, frame rate, aspect ratio and size come from the file itself, not from what was asked for.",
+        "height": 560,
+        "width": 1040,
+        "color": 7
+      },
+      "id": "0348471d-90b2-51c3-910f-e6d8486265de",
+      "name": "Section: check file",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3140,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 5. You approve, then it is queued\nThe idempotency key is the file, so approving twice never makes two posts. Skip leaves nothing behind but the file in Preflight.",
+        "height": 720,
+        "width": 1380,
+        "color": 7
+      },
+      "id": "616b860f-8e16-51f0-b073-924751471db2",
+      "name": "Section: approve",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        4220,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "02194702-a098-5c15-9f4a-0c280a29e7f2",
+      "name": "New idea in Telegram",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "8cc114f4-803a-51ee-aac2-f8730ae958c2"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "029c50f0-e48f-5c48-816a-08a66f956839",
+              "name": "allowedChatId",
+              "value": "YOUR_CHAT_ID",
+              "type": "string"
+            },
+            {
+              "id": "b4eaeac2-ff28-5389-85d9-981c29ed3824",
+              "name": "channels",
+              "value": "youtube, instagram, tiktok",
+              "type": "string"
+            },
+            {
+              "id": "bf244a84-d3cc-54b6-b3da-5703e456db50",
+              "name": "falModel",
+              "value": "fal-ai/kling-video/v2.6/pro/text-to-video",
+              "type": "string"
+            },
+            {
+              "id": "db9b03eb-bce0-5c29-8f27-5cc2a824e99d",
+              "name": "seconds",
+              "value": 5,
+              "type": "number"
+            },
+            {
+              "id": "5efc2269-42a7-5dde-b98b-a12b86ed76d5",
+              "name": "withSound",
+              "value": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0855aae7-fde1-5627-a0cd-0c373e767105",
+      "name": "Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d0f0d052-fc60-5ca9-b210-e0ebf36bf381",
+              "leftValue": "={{ String($('New idea in Telegram').first().json.message.chat.id) }}",
+              "rightValue": "={{ String($('Configuration').first().json.allowedChatId) }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "13c3ccbf-35a8-5541-a1bf-7df9025449c2",
+              "leftValue": "={{ $('New idea in Telegram').first().json.message.text }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "13a4244d-4fac-59a5-ab19-6d7da389d6a9",
+      "name": "From your chat?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('New idea in Telegram').first().json.message.chat.id }}",
+        "text": "={{ String('Planning a video for: ' + $('New idea in Telegram').first().json.message.text.slice(0, 200)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "2be1c8fc-5836-579b-844b-d7e641833374",
+      "name": "Say it has started",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        660,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Plan a vertical short video (9:16) of about {{ $('Configuration').first().json.seconds }} seconds from this idea, for YouTube Shorts, Instagram Reels and TikTok.\n\nIdea: {{ $('New idea in Telegram').first().json.message.text }}\n\nvideoPrompt: one paragraph for a text-to-video model: subject, action, setting, camera, light. No text on screen, no logos, no real people.\ncaption: under 150 characters, plain text, at most three hashtags, no links.\nyoutubeTitle: under 70 characters.",
+        "hasOutputParser": true
+      },
+      "id": "be71aa8f-d33b-5e25-b743-e323be413cff",
+      "name": "Plan the video",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        980,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-haiku-4-5",
+          "mode": "list",
+          "cachedResultName": "Claude Haiku 4.5"
+        },
+        "options": {}
+      },
+      "id": "3fdb264f-c7ab-5f40-a100-8f60d7fc408c",
+      "name": "Claude",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.6,
+      "position": [
+        980,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "fromJson",
+        "jsonSchemaExample": "{\n \"videoPrompt\": \"A ceramic cup on a sunlit kitchen table\\u2026\",\n \"caption\": \"Morning ritual #coffee\",\n \"youtubeTitle\": \"Morning coffee in 5 seconds\"\n}"
+      },
+      "id": "03c54339-f817-5d23-98c1-d547c03803ea",
+      "name": "Plan format",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1140,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://preflight.social/v1/platforms/check",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $('Plan the video').item.json.output.caption, platforms: $('Configuration').first().json.channels.split(',').map(c => c.trim().split(':')[0].toLowerCase()).filter(Boolean), media: [{ kind: 'video', durationSeconds: Number($('Configuration').first().json.seconds), fps: 24, width: 1080, height: 1920 }] }) }}",
+        "options": {}
+      },
+      "id": "76d7118a-9894-53d6-9633-3404a9b7a6f5",
+      "name": "Check the plan",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1380,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "58aa6f09-49ae-55c8-9b9a-41b196c3cb78",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "3dbe1d81-1c36-5d79-ac6c-9591355831a2",
+      "name": "Plan passes?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1600,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('New idea in Telegram').first().json.message.chat.id }}",
+        "text": "={{ String('Not rendered, so nothing was spent. Preflight says:\\n' + $json.issues.map(i => (i.platform ? i.platform + ': ' : '') + i.message).join('\\n')).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "3b08c94e-49dc-5fe3-bc98-996f8725d36f",
+      "name": "Tell the plan was refused",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1820,
+        200
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ \"https://queue.fal.run/\" + $('Configuration').first().json.falModel }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ prompt: $('Plan the video').item.json.output.videoPrompt, duration: String($('Configuration').first().json.seconds), aspect_ratio: '9:16', generate_audio: $('Configuration').first().json.withSound === true }) }}",
+        "options": {}
+      },
+      "id": "57e24e94-543d-557d-8c95-96392092f015",
+      "name": "Start the render",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2120,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 20,
+        "unit": "seconds"
+      },
+      "id": "9d685943-15c9-59c4-b95b-f142e608ab0e",
+      "name": "Wait 20 seconds",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2340,
+        0
+      ],
+      "webhookId": "96dcb1d7-039d-56f5-bddb-d612fb541200"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Start the render').first().json.status_url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "29633e49-1072-51ec-be76-476fe89002df",
+      "name": "Ask fal.ai for the status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2560,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4c09a691-ace5-52e6-b359-682bee7ea68b",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "COMPLETED",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "ee155096-91dc-556e-815d-32f5d6f499b8",
+      "name": "Finished?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2780,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "021773a8-ae8e-5da5-84d7-92ab616b4b0a",
+              "leftValue": "={{ $runIndex }}",
+              "rightValue": 30,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "083d7423-ad61-5024-b59a-9cc246fef721",
+      "name": "Keep waiting?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2780,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('New idea in Telegram').first().json.message.chat.id }}",
+        "text": "={{ String('The render was still not finished after ten minutes. fal.ai request: ' + $('Start the render').first().json.request_id).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "2532aa3f-a551-5725-85a9-bfd4fce76573",
+      "name": "Tell it took too long",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3000,
+        340
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Start the render').first().json.response_url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "65861a9c-e908-577d-a3c1-7012626ada85",
+      "name": "Get the video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3000,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "dafff601-e6d5-5060-815e-4d13966acc71",
+              "leftValue": "={{ $json.video?.url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "1bcc2ceb-9087-5949-813f-030a8c9e7c46",
+      "name": "Got a video?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3180,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('New idea in Telegram').first().json.message.chat.id }}",
+        "text": "={{ String('fal.ai returned no video: ' + ($json.detail ? JSON.stringify($json.detail) : $json.error || 'no reason given')).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "f98f02ed-9daa-5d95-ac7a-973c943a8556",
+      "name": "Tell there is no video",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3180,
+        220
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "resource": "media",
+        "operation": "upload",
+        "source": "url",
+        "sourceUrl": "={{ $json.video.url }}",
+        "kind": "video",
+        "waitUntilReady": true
+      },
+      "id": "90331fa7-dc56-5700-99e7-6bf0d3013c84",
+      "name": "Upload to Preflight",
+      "type": "n8n-nodes-preflight.preflight",
+      "typeVersion": 1,
+      "position": [
+        3360,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "da456735-88ab-5610-896e-2a9c4d6b5ac4",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "a6064d29-807c-590b-bff6-d27785f2c48a",
+      "name": "Uploaded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3560,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('New idea in Telegram').first().json.message.chat.id }}",
+        "text": "={{ String('Error: ' + ([$json.error, $json.description].filter(Boolean).join(' ') || 'Preflight could not take the file')).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "ea0430ba-6c52-5856-8148-1f37460616ff",
+      "name": "Tell the upload failed",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3760,
+        200
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "resource": "post",
+        "operation": "validate",
+        "channels": "={{ $('Configuration').first().json.channels }}",
+        "content": "={{ $('Plan the video').item.json.output.caption }}",
+        "additionalFields": {
+          "mediaIds": "={{ $('Upload to Preflight').item.json.id }}"
+        },
+        "networkOptions": {
+          "youtubeTitle": "={{ $('Plan the video').item.json.output.youtubeTitle }}",
+          "youtubeShort": true,
+          "youtubePrivacy": "public",
+          "instagramPlacement": "reel",
+          "tiktokPrivacy": "SELF_ONLY",
+          "tiktokAsDraft": true
+        }
+      },
+      "id": "122bfb50-92af-5c95-be71-90b6db0e17ac",
+      "name": "Check the video",
+      "type": "n8n-nodes-preflight.preflight",
+      "typeVersion": 1,
+      "position": [
+        3760,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "58aa6f09-49ae-55c8-9b9a-41b196c3cb78",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "8b716783-df88-5cc8-bcd7-c535ee2150e5",
+      "name": "Video passes?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3980,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('New idea in Telegram').first().json.message.chat.id }}",
+        "text": "={{ String('The clip was rendered but would be refused:\\n' + $json.issues.map(i => (i.platform ? i.platform + ': ' : '') + i.message).join('\\n')).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "9a472446-8740-5bff-a88c-720d5f7e5871",
+      "name": "Tell the video was refused",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        4000,
+        240
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "operation": "sendVideo",
+        "chatId": "={{ $('New idea in Telegram').first().json.message.chat.id }}",
+        "file": "={{ $('Get the video').first().json.video.url }}",
+        "additionalFields": {
+          "caption": "={{ $('Plan the video').item.json.output.caption }}"
+        }
+      },
+      "id": "4214c260-d29c-5ed7-988d-e7744968f51b",
+      "name": "Send the clip",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        4300,
+        -100
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "chatId": "={{ $('New idea in Telegram').first().json.message.chat.id }}",
+        "message": "={{ ('Queue this clip for ' + $('Configuration').first().json.channels + '?\\nYouTube title: ' + $('Plan the video').item.json.output.youtubeTitle).replace(/([_*`\\[])/g, '\\\\$1') }}}}",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "approveLabel": "Queue it",
+            "disapproveLabel": "Skip"
+          }
+        },
+        "options": {
+          "limitWaitTime": {
+            "values": {
+              "limitType": "afterTimeInterval",
+              "resumeAmount": 24,
+              "resumeUnit": "hours"
+            }
+          },
+          "appendAttribution": false
+        }
+      },
+      "id": "6dcb12c1-a4cf-59d7-8200-9f18b78ae07f",
+      "name": "Approve or skip",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        4520,
+        -100
+      ],
+      "webhookId": "eadccd84-c44a-5082-9688-ee2ba4f41fa1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "1eb9a634-4312-504f-afca-270901fd7631",
+              "leftValue": "={{ $json.data?.approved === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "2dad0b9f-66cc-5a84-9d63-ca1a52810bd1",
+      "name": "Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4740,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "post",
+        "operation": "create",
+        "channels": "={{ $('Configuration').first().json.channels }}",
+        "content": "={{ $('Plan the video').item.json.output.caption }}",
+        "additionalFields": {
+          "mediaIds": "={{ $('Upload to Preflight').item.json.id }}"
+        },
+        "networkOptions": {
+          "youtubeTitle": "={{ $('Plan the video').item.json.output.youtubeTitle }}",
+          "youtubeShort": true,
+          "youtubePrivacy": "public",
+          "instagramPlacement": "reel",
+          "tiktokPrivacy": "SELF_ONLY",
+          "tiktokAsDraft": true
+        },
+        "when": "queue",
+        "idempotencyKey": "={{ 'tg-video-' + $('Upload to Preflight').item.json.id }}"
+      },
+      "id": "6ce93fd5-81c1-580a-a10d-a2e0d399c023",
+      "name": "Queue on every channel",
+      "type": "n8n-nodes-preflight.preflight",
+      "typeVersion": 1,
+      "position": [
+        4960,
+        -200
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "da456735-88ab-5610-896e-2a9c4d6b5ac4",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "4013b85a-4e50-5e8b-a65d-89a437e87c82",
+      "name": "Queued?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        5180,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('New idea in Telegram').first().json.message.chat.id }}",
+        "text": "={{ String('Queued.\\n' + $json.targets.map(t => t.platform + ': ' + (t.scheduledAt || $json.scheduledAt || 'next free slot')).join('\\n')).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "0e93ce91-d39c-5ff6-a103-b48b82045929",
+      "name": "Tell it is queued",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        5400,
+        -280
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('New idea in Telegram').first().json.message.chat.id }}",
+        "text": "={{ String('Error: ' + ([$json.error, $json.description].filter(Boolean).join(' ') || 'Preflight refused the post')).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "bc56e5ed-bf67-5012-ad6f-8e454d984670",
+      "name": "Tell it was not queued",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        5400,
+        -80
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('New idea in Telegram').first().json.message.chat.id }}",
+        "text": "={{ String('Skipped. Nothing was posted.').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "78f9b902-14a8-5207-9637-9309a1f4d652",
+      "name": "Tell it was skipped",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        4960,
+        100
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "New idea in Telegram": {
+      "main": [
+        [
+          {
+            "node": "Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configuration": {
+      "main": [
+        [
+          {
+            "node": "From your chat?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "From your chat?": {
+      "main": [
+        [
+          {
+            "node": "Say it has started",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Say it has started": {
+      "main": [
+        [
+          {
+            "node": "Plan the video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan the video": {
+      "main": [
+        [
+          {
+            "node": "Check the plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check the plan": {
+      "main": [
+        [
+          {
+            "node": "Plan passes?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Plan the video",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan format": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Plan the video",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan passes?": {
+      "main": [
+        [
+          {
+            "node": "Start the render",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell the plan was refused",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start the render": {
+      "main": [
+        [
+          {
+            "node": "Wait 20 seconds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 20 seconds": {
+      "main": [
+        [
+          {
+            "node": "Ask fal.ai for the status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask fal.ai for the status": {
+      "main": [
+        [
+          {
+            "node": "Finished?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finished?": {
+      "main": [
+        [
+          {
+            "node": "Get the video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Keep waiting?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep waiting?": {
+      "main": [
+        [
+          {
+            "node": "Wait 20 seconds",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell it took too long",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get the video": {
+      "main": [
+        [
+          {
+            "node": "Got a video?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Got a video?": {
+      "main": [
+        [
+          {
+            "node": "Upload to Preflight",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell there is no video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to Preflight": {
+      "main": [
+        [
+          {
+            "node": "Uploaded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Uploaded?": {
+      "main": [
+        [
+          {
+            "node": "Check the video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell the upload failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check the video": {
+      "main": [
+        [
+          {
+            "node": "Video passes?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Video passes?": {
+      "main": [
+        [
+          {
+            "node": "Send the clip",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell the video was refused",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send the clip": {
+      "main": [
+        [
+          {
+            "node": "Approve or skip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approve or skip": {
+      "main": [
+        [
+          {
+            "node": "Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approved?": {
+      "main": [
+        [
+          {
+            "node": "Queue on every channel",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell it was skipped",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Queue on every channel": {
+      "main": [
+        [
+          {
+            "node": "Queued?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Queued?": {
+      "main": [
+        [
+          {
+            "node": "Tell it is queued",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell it was not queued",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

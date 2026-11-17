@@ -134,6 +134,7 @@ RETRY = {'retryOnFail': True, 'maxTries': 3, 'waitBetweenTries': 5000}
 ISSUES_JS = "$json.issues.map(i => (i.platform ? i.platform + ': ' : '') + i.message).join('\\n')"
 ISSUES = '={{ ' + ISSUES_JS + ' }}'
 CONFIG = "$('Configuration').first().json"
+ERR_JS = "'Error: ' + ([$json.error, $json.description].filter(Boolean).join(' ') || 'Preflight refused the post')"
 
 
 # ---------------------------------------------------------------------------
@@ -659,12 +660,249 @@ def failed_alerts() -> Workflow:
     return w
 
 
+# ---------------------------------------------------------------------------
+# 6. Telegram idea -> AI video (Kling on fal.ai) -> checked twice -> approve -> queue
+# ---------------------------------------------------------------------------
+TELEGRAM = 'n8n-nodes-base.telegram'
+FAL = {'authentication': 'genericCredentialType', 'genericAuthType': 'httpHeaderAuth'}
+
+
+def telegram_text(name, js, x, y):
+    # Sent as HTML with the text escaped: the node's default, legacy Markdown, refuses any
+    # message with an unpaired underscore, and error messages are full of them.
+    return dict(name=name, type_=TELEGRAM, params={
+        'chatId': "={{ $('New idea in Telegram').first().json.message.chat.id }}",
+        'text': '={{ String(' + js + ").replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+        'additionalFields': {'appendAttribution': False, 'parse_mode': 'HTML'},
+    }, version=1.2, x=x, y=y)
+
+
+def add_telegram_text(w, name, text, x, y):
+    # A reply that times out once should not end a run that may already have paid for a render.
+    t = telegram_text(name, text, x, y)
+    w.node(t['name'], t['type_'], t['params'], t['version'], t['x'], t['y'], **RETRY)
+
+
+def ai_video_from_telegram() -> Workflow:
+    w = Workflow('Turn a Telegram message into an AI short video, checked against each network before and after rendering', 'aivideo')
+    w.note(
+        'Overview',
+        '## Telegram idea → AI short video → approved → queued\n\n'
+        'For creators with ideas on the go: text one to your bot, get a vertical clip back, tap Approve, and it '
+        'is queued for YouTube Shorts, Instagram Reels and TikTok.\n\n'
+        '### How it works\n'
+        '1. Claude turns an idea from your own chat into a video prompt, a caption and a YouTube title.\n'
+        '2. Before any money is spent, Preflight checks the caption and planned clip against each channel\'s '
+        'rules. A refusal comes back with the reason.\n'
+        '3. Kling renders the clip on fal.ai (up to about ten minutes).\n'
+        '4. Preflight measures the real file and checks it again.\n'
+        '5. The bot sends the clip with Approve and Skip. Approve queues it for each channel\'s next free slot.\n\n'
+        '### Setup\n'
+        f"1. {REQUIREMENTS.replace('n8n 2.43', 'self-hosted n8n 2.43')}\n"
+        f'2. {API_KEY} with the scopes `posts:read`, `posts:write`, `posts:publish`, `media:read` and '
+        '`media:write`. Add it as a **Preflight API** credential.\n'
+        '3. Create a bot with @BotFather and add its token as a Telegram credential.\n'
+        '4. Add an Anthropic credential to **Claude**, and your fal.ai key as Header Auth (`Authorization`: '
+        '`Key YOUR_FAL_KEY`).\n'
+        '5. In **Configuration**, set your channels and chat ID (message the bot once: it is `message.chat.id` '
+        'in the trigger\'s output).\n\n'
+        '### Customization\n'
+        '- Each clip costs money on fal.ai: Kling 2.6 Pro is $0.07 per second, $0.14 with **withSound** on. '
+        'Kling takes 5 or 10 **seconds**. For another model change **falModel** and **Start the render**.\n'
+        '- TikTok goes to the inbox as **Only me** until you change the TikTok options.',
+        -800, -460, 600, 1040, YELLOW,
+    )
+    w.note('Section: idea', '### 1. Your idea, from your chat only\nAnyone can message a bot. Messages from other chats '
+           'are ignored, so nobody else can spend your render credits.', -60, -200, 960, 400)
+    w.note('Section: plan', '### 2. Plan, then check for free\nThe caption and the planned clip are checked before '
+           'rendering, so a post a network would refuse never costs a render.', 940, -200, 1080, 560)
+    w.note('Section: render', '### 3. Render and wait\nfal.ai queues the job. The loop checks every 20 seconds and '
+           'gives up after about ten minutes.', 2060, -200, 1060, 640)
+    w.note('Section: check file', '### 4. Check the real file\nLength, frame rate, aspect ratio and size come from the '
+           'file itself, not from what was asked for.', 3140, -200, 1040, 560)
+    w.note('Section: approve', '### 5. You approve, then it is queued\nThe idempotency key is the file, so approving '
+           'twice never makes two posts. Skip leaves nothing behind but the file in Preflight.',
+           4220, -320, 1380, 720)
+
+    w.node('New idea in Telegram', 'n8n-nodes-base.telegramTrigger',
+           {'updates': ['message'], 'additionalFields': {}}, 1.2, 0, 0, webhookId=nid('aivideo-trigger'))
+    w.node('Configuration', 'n8n-nodes-base.set', fields('aivideo', [
+        ('allowedChatId', 'YOUR_CHAT_ID', 'string'),
+        ('channels', 'youtube, instagram, tiktok', 'string'),
+        ('falModel', 'fal-ai/kling-video/v2.6/pro/text-to-video', 'string'),
+        ('seconds', 5, 'number'),
+        ('withSound', False, 'boolean'),
+    ]), 3.4, 220, 0)
+    msg = "$('New idea in Telegram').first().json.message"
+    w.node('From your chat?', 'n8n-nodes-base.if', {
+        'conditions': {
+            'options': {'caseSensitive': True, 'leftValue': '', 'typeValidation': 'loose', 'version': 2},
+            'conditions': [
+                {'id': nid('aivideo-chat'), 'leftValue': f'={{{{ String({msg}.chat.id) }}}}',
+                 'rightValue': f'={{{{ String({CONFIG}.allowedChatId) }}}}',
+                 'operator': {'type': 'string', 'operation': 'equals'}},
+                {'id': nid('aivideo-text'), 'leftValue': f'={{{{ {msg}.text }}}}', 'rightValue': '',
+                 'operator': {'type': 'string', 'operation': 'notEmpty', 'singleValue': True}},
+            ],
+            'combinator': 'and',
+        },
+        'looseTypeValidation': True,
+        'options': {},
+    }, 2.2, 440, 0)
+    add_telegram_text(w, 'Say it has started', "'Planning a video for: ' + " + msg + '.text.slice(0, 200)', 660, 0)
+
+    w.node('Plan the video', '@n8n/n8n-nodes-langchain.chainLlm', {
+        'promptType': 'define',
+        'text': '=Plan a vertical short video (9:16) of about {{ ' + CONFIG + '.seconds }} seconds from this idea, '
+                'for YouTube Shorts, Instagram Reels and TikTok.\n\nIdea: {{ ' + msg + '.text }}\n\n'
+                'videoPrompt: one paragraph for a text-to-video model: subject, action, setting, camera, light. '
+                'No text on screen, no logos, no real people.\n'
+                'caption: under 150 characters, plain text, at most three hashtags, no links.\n'
+                'youtubeTitle: under 70 characters.',
+        'hasOutputParser': True,
+    }, 1.7, 980, 0)
+    w.node('Claude', '@n8n/n8n-nodes-langchain.lmChatAnthropic', {
+        'model': {'__rl': True, 'value': 'claude-haiku-4-5', 'mode': 'list', 'cachedResultName': 'Claude Haiku 4.5'},
+        'options': {},
+    }, 1.6, 980, 220)
+    w.node('Plan format', '@n8n/n8n-nodes-langchain.outputParserStructured', {
+        'schemaType': 'fromJson',
+        'jsonSchemaExample': json.dumps({'videoPrompt': 'A ceramic cup on a sunlit kitchen table…',
+                                         'caption': 'Morning ritual #coffee', 'youtubeTitle': 'Morning coffee in 5 seconds'}, indent=1),
+    }, 1.3, 1140, 220)
+    plan = "$('Plan the video').item.json.output"
+    platforms = f"{CONFIG}.channels.split(',').map(c => c.trim().split(':')[0].toLowerCase()).filter(Boolean)"
+    w.node('Check the plan', 'n8n-nodes-base.httpRequest', {
+        'method': 'POST',
+        'url': 'https://preflight.social/v1/platforms/check',
+        'sendBody': True, 'specifyBody': 'json',
+        'jsonBody': f"={{{{ JSON.stringify({{ text: {plan}.caption, platforms: {platforms}, "
+                    f"media: [{{ kind: 'video', durationSeconds: Number({CONFIG}.seconds), fps: 24, width: 1080, height: 1920 }}] }}) }}}}",
+        'options': {},
+    }, 4.2, 1380, 0, **RETRY)
+    w.node('Plan passes?', 'n8n-nodes-base.if', if_ok(), 2.2, 1600, 0)
+    add_telegram_text(w, 'Tell the plan was refused', "'Not rendered, so nothing was spent. Preflight says:\\n' + " + ISSUES_JS, 1820, 200)
+
+    w.node('Start the render', 'n8n-nodes-base.httpRequest', {
+        'method': 'POST',
+        'url': f'={{{{ "https://queue.fal.run/" + {CONFIG}.falModel }}}}',
+        **FAL,
+        'sendBody': True, 'specifyBody': 'json',
+        'jsonBody': f"={{{{ JSON.stringify({{ prompt: {plan}.videoPrompt, duration: String({CONFIG}.seconds), "
+                    f"aspect_ratio: '9:16', generate_audio: {CONFIG}.withSound === true }}) }}}}",
+        'options': {},
+    }, 4.2, 2120, 0)
+    w.node('Wait 20 seconds', 'n8n-nodes-base.wait', {'amount': 20, 'unit': 'seconds'}, 1.1, 2340, 0,
+           webhookId=nid('aivideo-wait'))
+    job = "$('Start the render').first().json"
+    w.node('Ask fal.ai for the status', 'n8n-nodes-base.httpRequest', {
+        'url': f'={{{{ {job}.status_url }}}}', **FAL, 'options': {},
+    }, 4.2, 2560, 0, **RETRY)
+    finished = condition('={{ $json.status }}', {'type': 'string', 'operation': 'equals'})
+    finished['conditions']['conditions'][0]['rightValue'] = 'COMPLETED'
+    w.node('Finished?', 'n8n-nodes-base.if', finished, 2.2, 2780, 0)
+    # $runIndex counts this node's runs: 30 rounds of 20 seconds is about ten minutes.
+    keep = condition('={{ $runIndex }}', {'type': 'number', 'operation': 'lt'})
+    keep['conditions']['conditions'][0]['rightValue'] = 30
+    w.node('Keep waiting?', 'n8n-nodes-base.if', keep, 2.2, 2780, 240)
+    add_telegram_text(w, 'Tell it took too long', f"'The render was still not finished after ten minutes. fal.ai request: ' + {job}.request_id", 3000, 340)
+    w.node('Get the video', 'n8n-nodes-base.httpRequest', {
+        'url': f'={{{{ {job}.response_url }}}}', **FAL, 'options': {},
+    }, 4.2, 3000, 0, onError='continueRegularOutput')
+
+    w.node('Got a video?', 'n8n-nodes-base.if', if_not_empty('={{ $json.video?.url }}'), 2.2, 3180, 0)
+    add_telegram_text(w, 'Tell there is no video',
+                      "'fal.ai returned no video: ' + ($json.detail ? JSON.stringify($json.detail) : $json.error || 'no reason given')",
+                      3180, 220)
+    w.node('Upload to Preflight', PREFLIGHT, {
+        'resource': 'media', 'operation': 'upload', 'source': 'url',
+        'sourceUrl': '={{ $json.video.url }}', 'kind': 'video', 'waitUntilReady': True,
+    }, 1, 3360, 0, onError='continueRegularOutput')
+    w.node('Uploaded?', 'n8n-nodes-base.if', SAVED, 2.2, 3560, 0)
+    add_telegram_text(w, 'Tell the upload failed', ERR_JS.replace("'Preflight refused the post'", "'Preflight could not take the file'"), 3760, 200)
+    video = "$('Upload to Preflight').item.json.id"
+    post_fields = {
+        'channels': f'={{{{ {CONFIG}.channels }}}}',
+        'content': f'={{{{ {plan}.caption }}}}',
+        'additionalFields': {'mediaIds': f'={{{{ {video} }}}}'},
+        'networkOptions': {
+            'youtubeTitle': f'={{{{ {plan}.youtubeTitle }}}}',
+            'youtubeShort': True,
+            'youtubePrivacy': 'public',
+            'instagramPlacement': 'reel',
+            'tiktokPrivacy': 'SELF_ONLY',
+            'tiktokAsDraft': True,
+        },
+    }
+    w.node('Check the video', PREFLIGHT, {'resource': 'post', 'operation': 'validate', **post_fields},
+           1, 3760, 0, **RETRY)
+    w.node('Video passes?', 'n8n-nodes-base.if', if_ok(), 2.2, 3980, 0)
+    add_telegram_text(w, 'Tell the video was refused', "'The clip was rendered but would be refused:\\n' + " + ISSUES_JS, 4000, 240)
+
+    w.node('Send the clip', TELEGRAM, {
+        'operation': 'sendVideo',
+        'chatId': f"={{{{ {msg}.chat.id }}}}",
+        'file': "={{ $('Get the video').first().json.video.url }}",
+        'additionalFields': {'caption': f'={{{{ {plan}.caption }}}}'},
+    }, 1.2, 4300, -100, **RETRY)
+    w.node('Approve or skip', TELEGRAM, {
+        'operation': 'sendAndWait',
+        'chatId': f"={{{{ {msg}.chat.id }}}}",
+        # This message is always sent as legacy Markdown, so its text is escaped for it.
+        'message': f"={{{{ ('Queue this clip for ' + {CONFIG}.channels + '?\\nYouTube title: ' + {plan}.youtubeTitle)"
+                   ".replace(/([_*`\\[])/g, '\\\\$1') }}}}",
+        'approvalOptions': {'values': {'approvalType': 'double', 'approveLabel': 'Queue it', 'disapproveLabel': 'Skip'}},
+        'options': {'limitWaitTime': {'values': {'limitType': 'afterTimeInterval', 'resumeAmount': 24, 'resumeUnit': 'hours'}},
+                    'appendAttribution': False},
+    }, 1.2, 4520, -100, webhookId=nid('aivideo-approve'))
+    w.node('Approved?', 'n8n-nodes-base.if', if_ok('={{ $json.data?.approved === true }}'), 2.2, 4740, -100)
+    w.node('Queue on every channel', PREFLIGHT, {
+        'resource': 'post', 'operation': 'create', **post_fields,
+        'when': 'queue',
+        'idempotencyKey': f"={{{{ 'tg-video-' + {video} }}}}",
+    }, 1, 4960, -200, onError='continueRegularOutput')
+    w.node('Queued?', 'n8n-nodes-base.if', SAVED, 2.2, 5180, -200)
+    add_telegram_text(w, 'Tell it is queued', "'Queued.\\n' + $json.targets.map(t => t.platform + ': ' + (t.scheduledAt || $json.scheduledAt || 'next free slot')).join('\\n')", 5400, -280)
+    add_telegram_text(w, 'Tell it was not queued', ERR_JS, 5400, -80)
+    add_telegram_text(w, 'Tell it was skipped', "'Skipped. Nothing was posted.'", 4960, 100)
+
+    w.chain('New idea in Telegram', 'Configuration', 'From your chat?')
+    w.link('From your chat?', 'Say it has started', 0)
+    w.chain('Say it has started', 'Plan the video', 'Check the plan', 'Plan passes?')
+    w.link('Claude', 'Plan the video', kind='ai_languageModel')
+    w.link('Plan format', 'Plan the video', kind='ai_outputParser')
+    w.link('Plan passes?', 'Start the render', 0)
+    w.link('Plan passes?', 'Tell the plan was refused', 1)
+    w.chain('Start the render', 'Wait 20 seconds', 'Ask fal.ai for the status', 'Finished?')
+    w.link('Finished?', 'Get the video', 0)
+    w.link('Finished?', 'Keep waiting?', 1)
+    w.link('Keep waiting?', 'Wait 20 seconds', 0)
+    w.link('Keep waiting?', 'Tell it took too long', 1)
+    w.chain('Get the video', 'Got a video?')
+    w.link('Got a video?', 'Upload to Preflight', 0)
+    w.link('Got a video?', 'Tell there is no video', 1)
+    w.chain('Upload to Preflight', 'Uploaded?')
+    w.link('Uploaded?', 'Check the video', 0)
+    w.link('Uploaded?', 'Tell the upload failed', 1)
+    w.chain('Check the video', 'Video passes?')
+    w.link('Video passes?', 'Send the clip', 0)
+    w.link('Video passes?', 'Tell the video was refused', 1)
+    w.chain('Send the clip', 'Approve or skip', 'Approved?')
+    w.link('Approved?', 'Queue on every channel', 0)
+    w.link('Approved?', 'Tell it was skipped', 1)
+    w.chain('Queue on every channel', 'Queued?')
+    w.link('Queued?', 'Tell it is queued', 0)
+    w.link('Queued?', 'Tell it was not queued', 1)
+    return w
+
+
 TEMPLATES = [
     ('01-rss-ai-caption-validate-draft', rss_to_drafts),
     ('02-google-sheets-content-calendar', sheets_calendar),
     ('03-vertical-video-shorts-reels-tiktok', video_to_shorts),
     ('04-notion-database-to-preflight', notion_calendar),
     ('05-failed-post-slack-alert', failed_alerts),
+    ('06-telegram-ai-video-kling', ai_video_from_telegram),
 ]
 
 
